@@ -34,11 +34,12 @@ def compute_grad(weights, biases, X, y, y_pred):
     # y_pred = softmax(logits)
     grad_w = np.dot(X.T, y_pred - y)/X.shape[0]
     grad_b = np.sum(y_pred - y, axis=0)/X.shape[0]
+    print(grad_w)
     return grad_w, grad_b
 
 #Gradient and Jacobian Verification
 # 2.2 implement SGD
-def sgd(weights, biases, X, y,loss_function=cross_entropy_loss_batch, learning_rate=0.00001, num_iters=10, batch_size=10):
+def sgd(weights, biases, X, y,loss_function=cross_entropy_loss_batch, learning_rate=0.1, num_iters=10, batch_size=10):
     losses = []
     all_weights = []
 
