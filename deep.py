@@ -61,33 +61,32 @@ def sgd(weights, biases, X, y,loss_function=cross_entropy_loss_batch,gradient_fu
 
     for i in range(num_iters):
         # Randomly sample a batch of data points
-        batch_indices = np.random.randint(0, X.shape[0], size=batch_size)
-        X_batch = X[batch_indices]
-        y_batch = y[batch_indices]
-        # Compute gradients
-        logits = np.dot(X_batch, weights) + biases
-        # print("logits" + str(logits))
-        # if there is only one output, we don't need to use softmax
-        y_pred = logits
-        if len(y_batch[0]) > 1:
-            y_pred = softmax(logits)   
-        
-            
-        # y_pred = softmax(logits)
-        # y_pred = (logits)
-        # print("y_pred" + str(y_pred))
-        # print
+        indices = np.random.permutation(X_train.shape[0])
+        X_train = X_train[indices]
+        y_train = y_train[indices]
+        batchesxTrain = [X_train[i:i + batch_size] for i in range(0, X_train.shape[0], batch_size)]
+        batchesyTrain = [y_train[i:i + batch_size] for i in range(0, y_train.shape[0], batch_size)]
+        for j in range(len(batchesxTrain)):
+            X_batch = batchesxTrain[j]
+            y_batch = batchesyTrain[j]
+            # Compute gradients
+            logits = np.dot(X_batch, weights) + biases
+            # print("logits" + str(logits))
+            # if there is only one output, we don't need to use softmax
+            y_pred = logits
+            if len(y_batch[0]) > 1:
+                y_pred = softmax(logits)   
 
-        grad_w, grad_b = gradient_function(weights, biases, X_batch, y_batch, y_pred)
-        # Update weights
-        all_weights.append(deepcopy(weights))
-        # print("weight before update" + str(weights), "grad_w" + str(grad_w))
-        weights -= learning_rate * grad_w
-        # print("weight after update" + str(weights))
-        biases -= learning_rate * grad_b
-        # Compute loss
-        loss = loss_function(y_batch, y_pred)
-        losses.append(loss)
+            grad_w, grad_b = gradient_function(weights, biases, X_batch, y_batch, y_pred)
+            # Update weights
+            all_weights.append(deepcopy(weights))
+            # print("weight before update" + str(weights), "grad_w" + str(grad_w))
+            weights -= learning_rate * grad_w
+            # print("weight after update" + str(weights))
+            biases -= learning_rate * grad_b
+            # Compute loss
+            loss = loss_function(y_batch, y_pred)
+            losses.append(loss)
 
 
         # # Plot the data and solutions
