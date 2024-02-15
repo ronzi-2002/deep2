@@ -61,9 +61,9 @@ def sgd(weights, biases, X, y,loss_function=cross_entropy_loss_batch,gradient_fu
 
     for i in range(num_iters):
         # Randomly sample a batch of data points
-        indices = np.random.permutation(X_train.shape[0])
-        X_train = X_train[indices]
-        y_train = y_train[indices]
+        indices = np.random.permutation(X.shape[0])
+        X_train = X[indices]
+        y_train = y[indices]
         batchesxTrain = [X_train[i:i + batch_size] for i in range(0, X_train.shape[0], batch_size)]
         batchesyTrain = [y_train[i:i + batch_size] for i in range(0, y_train.shape[0], batch_size)]
         for j in range(len(batchesxTrain)):
