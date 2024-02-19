@@ -187,5 +187,6 @@ def test_sgd():
     print("Mean Squared Error (Closed-form):", mse_closed_form)
     print("Mean Squared Error (SGD):", mse_sgd)
 
-# Run the test and plot
-test_sgd()
+if __name__ == "__main__":
+    # Run the test and plot
+    test_sgd()

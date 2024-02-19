@@ -1,5 +1,6 @@
 from deep import * 
 import numpy as np
+import copy 
 import matplotlib.pyplot as plt
 
 
@@ -47,27 +48,30 @@ def gradient_test(weights, biases, X, y, epsilon=1e-8):
     print(f"Bias gradient difference: {grad_diff_b}")
 
 #Gradient Verification By Lecture Notes
-def gradient_test_by_lecture_notes(weights, biases, X, y, initial_epsilon=1e-4):
+def gradient_test_by_lecture_notes(weights, biases, X, y, initial_epsilon=1e-2):
     # Compute gradients using the provided function
-    grad_w, grad_b = compute_grad(weights, biases, X, y)
+    logits = np.dot(X, weights) + biases
+    y_pred = softmax(logits)
+    grad_w, grad_b = compute_grad(weights, biases, X, y,y_pred)
     grad_diffs_w = []
     #compute the gradient with adding a decreasing epsilon to the weights
-    for epsilon in [initial_epsilon/(10**i) for i in range(5)]:
+    for epsilon in [initial_epsilon/(10**i) for i in range(10)]:
         grad_w_plus = np.zeros_like(weights)
         grad_b_plus = np.zeros_like(biases)
         for i in range(weights.shape[0]):
             for j in range(weights.shape[1]):
                 weights_plus = weights.copy()
                 weights_plus[i, j] += epsilon
-                loss_plus = softmax_regression_loss(weights_plus, biases, X, y)
-                grad_w_plus[i, j] = (loss_plus - softmax_regression_loss(weights, biases, X, y))/epsilon
+                y_pred_plus = softmax(np.dot(X, weights_plus) + biases)
+                loss_plus = softmax_regression_loss(weights_plus, biases, X, y, y_pred_plus)
+                grad_w_plus[i, j] = (loss_plus - softmax_regression_loss(weights, biases, X, y, y_pred))/epsilon
         for i in range(biases.shape[0]):
             biases_plus = biases.copy()
             biases_plus[i] += epsilon
-            loss_plus = softmax_regression_loss(weights, biases_plus, X, y)
-            grad_b_plus[i] = (loss_plus - softmax_regression_loss(weights, biases, X, y))/epsilon
+            loss_plus = softmax_regression_loss(weights, biases_plus, X, y, y_pred_plus)
+            grad_b_plus[i] = (loss_plus - softmax_regression_loss(weights, biases, X, y, y_pred))/epsilon
         grad_diff_w = np.linalg.norm(grad_w - grad_w_plus)
-        grad_diffs_w.append(grad_diff_w)
+        grad_diffs_w.append(copy.deepcopy( grad_diff_w))
         grad_diff_b = np.linalg.norm(grad_b - grad_b_plus)
 
         print("Gradient test results:")
@@ -75,11 +79,87 @@ def gradient_test_by_lecture_notes(weights, biases, X, y, initial_epsilon=1e-4):
         print(f"Bias gradient difference: {grad_diff_b}")
 
     #plot the gradient difference points with respect to the epsilon
-    plt.scatter([initial_epsilon/(10**i) for i in range(5)], grad_diffs_w)
+    plt.scatter([initial_epsilon/(10**i) for i in range(10)], grad_diffs_w)
     plt.title('Gradient Difference vs. Epsilon')
     plt.xlabel('Epsilon')
     plt.ylabel('Gradient Difference')
     plt.show()
+
+#Gradient Verification By Lecture Notes
+def gradient_test_by_lecture_notes_linear_dec(weights, biases, X, y, initial_epsilon=1):
+    # Compute gradients using the provided function
+    logits = np.dot(X, weights) + biases
+    y_pred = softmax(logits)
+    grad_w, grad_b = compute_grad(weights, biases, X, y,y_pred)
+    grad_diffs_w = []
+    #compute the gradient with adding a decreasing epsilon to the weights
+    for epsilon in [initial_epsilon-(0.1*i) for i in range(10)]:
+        grad_w_plus = np.zeros_like(weights)
+        grad_b_plus = np.zeros_like(biases)
+        for i in range(weights.shape[0]):
+            for j in range(weights.shape[1]):
+                weights_plus = weights.copy()
+                weights_plus[i, j] += epsilon
+                y_pred_plus = softmax(np.dot(X, weights_plus) + biases)
+                loss_plus = softmax_regression_loss(weights_plus, biases, X, y, y_pred_plus)
+                grad_w_plus[i, j] = (loss_plus - softmax_regression_loss(weights, biases, X, y, y_pred))/epsilon
+        for i in range(biases.shape[0]):
+            biases_plus = biases.copy()
+            biases_plus[i] += epsilon
+            loss_plus = softmax_regression_loss(weights, biases_plus, X, y, y_pred_plus)
+            grad_b_plus[i] = (loss_plus - softmax_regression_loss(weights, biases, X, y, y_pred))/epsilon
+        grad_diff_w = np.linalg.norm(grad_w - grad_w_plus)
+        grad_diffs_w.append(copy.deepcopy( grad_diff_w))
+        grad_diff_b = np.linalg.norm(grad_b - grad_b_plus)
+
+        print("Gradient test results:")
+        print(f"Weight gradient difference: {grad_diff_w}")
+        print(f"Bias gradient difference: {grad_diff_b}")
+
+
+#Gradient Verification By Lecture Notes
+def gradient_test_by_lecture_notes_linear_dec(weights, biases, X, y, initial_epsilon=1):
+    # Compute gradients using the provided function
+    logits = np.dot(X, weights) + biases
+    y_pred = softmax(logits)
+    grad_w, grad_b = compute_grad(weights, biases, X, y,y_pred)
+    grad_diffs_w = []
+    #compute the gradient with adding a decreasing epsilon to the weights
+    for epsilon in [initial_epsilon-(0.1*i) for i in range(10)]:
+        grad_w_plus = np.zeros_like(weights)
+        grad_b_plus = np.zeros_like(biases)
+        # for i in range(weights.shape[0]):
+            # for j in range(weights.shape[1]):
+        weights_plus = weights.copy()
+        weights_plus += epsilon
+        y_pred_plus = softmax(np.dot(X, weights_plus) + biases)
+        loss_plus = softmax_regression_loss(weights_plus, biases, X, y, y_pred_plus)
+        grad_w_plus = (loss_plus - softmax_regression_loss(weights, biases, X, y, y_pred))/epsilon
+        # for i in range(biases.shape[0]):
+        biases_plus = biases.copy()
+        biases_plus += epsilon
+        loss_plus = softmax_regression_loss(weights, biases_plus, X, y, y_pred_plus)
+        grad_b_plus = (loss_plus - softmax_regression_loss(weights, biases, X, y, y_pred))/epsilon
+        
+        
+        grad_diff_w = np.linalg.norm(grad_w - grad_w_plus)
+        grad_diffs_w.append(copy.deepcopy( grad_diff_w))
+        grad_diff_b = np.linalg.norm(grad_b - grad_b_plus)
+
+        print("Gradient test results:")
+        print(f"Weight gradient difference: {grad_diff_w}")
+        print(f"Bias gradient difference: {grad_diff_b}")
+
+
+
+
+    #plot the gradient difference points with respect to the epsilon
+    plt.scatter([initial_epsilon-(0.1*i) for i in range(10)], grad_diffs_w)
+    plt.title('Gradient Difference vs. Epsilon')
+    plt.xlabel('Epsilon')
+    plt.ylabel('Gradient Difference')
+    plt.show()
+
 
 
 # Example usage
@@ -94,4 +174,4 @@ print(weights)
 
 # gradient_test(weights, biases, X, y)
 
-gradient_test_by_lecture_notes(weights, biases, X, y, initial_epsilon=1e-8)
+gradient_test_by_lecture_notes_linear_dec(weights, biases, X, y, initial_epsilon=1)
