@@ -58,6 +58,7 @@ def compute_grad_for_MSE(weights, biases, X, y, y_pred):
 # 2.2 implement SGD
 def sgd(weights, biases, X, y,loss_function=cross_entropy_loss_batch,gradient_function=compute_grad, learning_rate=0.1, num_iters=100, batch_size=100, x_val=None, y_val=None, early_stopping=True, patience=10):
     losses = []
+    validation_losses = []
     all_weights = []
     accuracy_on_train = []
     accuracy_on_test = []
@@ -69,6 +70,7 @@ def sgd(weights, biases, X, y,loss_function=cross_entropy_loss_batch,gradient_fu
         batchesxTrain = [X_train[i:i + batch_size] for i in range(0, X_train.shape[0], batch_size)]
         batchesyTrain = [y_train[i:i + batch_size] for i in range(0, y_train.shape[0], batch_size)]
         iteration_losses = []
+        iteration_val_losses=[]
         
         for j in range(len(batchesxTrain)):
             X_batch = batchesxTrain[j]
@@ -91,11 +93,20 @@ def sgd(weights, biases, X, y,loss_function=cross_entropy_loss_batch,gradient_fu
             # Compute loss
             loss = loss_function(y_batch, y_pred)
             iteration_losses.append(loss)
+            if x_val is not None and y_val is not None:
+                logits = np.dot(x_val, weights) + biases
+                y_pred = softmax(logits)
+                iteration_val_losses.append(loss_function(y_val, y_pred))
             # losses.append(loss)
             # early stopping if the loss is not decreasing for 10 iterations in a row
             
         losses.append(np.mean(iteration_losses))
-        if i > 10 and losses[-1] > np.mean(losses[-10:-1]):
+        if x_val is not None and y_val is not None:
+            validation_losses.append(np.mean(iteration_val_losses))
+            if i > 10 and validation_losses[-1] > np.mean(validation_losses[-10:-1]):
+                print("Early stopping at iteration", i)
+                break
+        elif i > 10 and losses[-1] > np.mean(losses[-10:-1]):
             print("Early stopping at iteration", i)
             break
         # Compute the accuracy on the training set(on a random batch that is 10% of the data)
@@ -261,6 +272,7 @@ def Qs3():
             # initial_biases = np.random.randn(output_layer_size)
 
             # Run SGD with current learning rate and batch size
+            print("learning_rate" + str(learning_rate), "batch_size" + str(batch_size))
             final_weights, final_biases, losses = sgd(initial_weights, initial_biases, x_train.T, y_train.T,
                                                         loss_function=cross_entropy_loss_batch,
                                                         gradient_function=compute_grad,
