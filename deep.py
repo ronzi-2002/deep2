@@ -7,6 +7,7 @@ You should demonstrate and submit the results of the gradient test.
 import numpy as np
 import matplotlib.pyplot as plt
 from copy import deepcopy
+import scipy.io
 '''implement the cross entropy loss function'''
 def cross_entropy_loss_single(y, y_hat):#for a single data point
     epsilon = 1e-10  # Small constant to avoid log(0)
@@ -66,6 +67,7 @@ def sgd(weights, biases, X, y,loss_function=cross_entropy_loss_batch,gradient_fu
         y_train = y[indices]
         batchesxTrain = [X_train[i:i + batch_size] for i in range(0, X_train.shape[0], batch_size)]
         batchesyTrain = [y_train[i:i + batch_size] for i in range(0, y_train.shape[0], batch_size)]
+        iteration_losses = []
         for j in range(len(batchesxTrain)):
             X_batch = batchesxTrain[j]
             y_batch = batchesyTrain[j]
@@ -86,7 +88,17 @@ def sgd(weights, biases, X, y,loss_function=cross_entropy_loss_batch,gradient_fu
             biases -= learning_rate * grad_b
             # Compute loss
             loss = loss_function(y_batch, y_pred)
-            losses.append(loss)
+            iteration_losses.append(loss)
+            # losses.append(loss)
+            # early stopping if the loss is not decreasing for 10 iterations in a row
+            
+        losses.append(np.mean(iteration_losses))
+        if i > 10 and losses[-1] > np.mean(losses[-10:-1]):
+            print("Early stopping at iteration", i)
+            break
+
+            
+
 
 
         # # Plot the data and solutions
@@ -122,7 +134,7 @@ def closed_form_solution(X, y):
 
 
 # demonstrate that the SGD works on a small least squares example
-def test_sgd():
+def test_sgd_MSE():
     # Generate random data points
     np.random.seed(42)
     X = 2 * np.random.rand(100, 1)
@@ -163,9 +175,15 @@ def test_sgd():
 
     # Plot the data and solutions
     plt.scatter(X, y, label="True Data")
+
+
     # plt.plot(X, X_b.dot(theta_closed_form), label="Closed-form Solution", color='green', linewidth=2)
-    plt.plot(X, X.dot(final_weights) + final_biases, label="SGD Solution", color='red', linestyle='dashed', linewidth=2)
     plt.plot(X, X.dot(theta_closed_form[1]) + theta_closed_form[0], label="Closed-form Solution", color='green', linewidth=2)
+    # create an array x_for_plotting that contains x values from min to max but takes every 3 points
+    
+    x_for_plotting = np.sort(X, axis=0)
+    # plt.plot(X, X.dot(final_weights) + final_biases, label="SGD Solution", color='red',marker='', linestyle='--', linewidth=2,dashes=(10, 100))
+    plt.plot(x_for_plotting, x_for_plotting.dot(final_weights) + final_biases, label="SGD Solution", color='red',marker='', linestyle='--', linewidth=2)
 
     plt.xlabel("X")
     plt.ylabel("y")
@@ -187,6 +205,49 @@ def test_sgd():
     print("Mean Squared Error (Closed-form):", mse_closed_form)
     print("Mean Squared Error (SGD):", mse_sgd)
 
+
+#3
+def Qs3():
+    #we first need to load the data "PeaksData.mat" and then we need to split it into X and y
+    # Load the data
+    data = scipy.io.loadmat('PeaksData.mat')
+    x_train = data['Yt']
+    y_train = data['Ct']
+    x_val = data['Yv']
+    y_val = data['Cv']
+    # Initialize weights and biases for SGD
+    print("xShape" + str(x_train.shape), "yShape" + str(y_train.shape))
+    # return
+    input_layer_size = x_train.shape[0]
+    output_layer_size = y_train.shape[0]
+    print("input_layer_size: " + str(input_layer_size), "output_layer_size: " + str(output_layer_size))
+    
+    initial_weights = np.random.randn(input_layer_size, output_layer_size)
+    initial_biases = np.random.randn(output_layer_size)
+    # Compute SGD solution
+    final_weights, final_biases, losses = sgd(initial_weights, initial_biases, x_train.T, y_train.T,loss_function=cross_entropy_loss_batch,gradient_function=compute_grad)
+    #plot the losses
+    plt.plot(losses)
+    plt.title('Loss vs. Iteration')
+    plt.xlabel('Iteration')
+    plt.ylabel('Loss')
+    plt.show()
+    # Compute the loss on the validation set
+    logits = np.dot(x_val.T, final_weights) + final_biases
+    y_pred = softmax(logits)
+    loss = cross_entropy_loss_batch(y_val.T, y_pred)
+    print("Loss on validation set:", loss)
+    # Compute the accuracy on the validation set
+    y_pred_class = np.argmax(y_pred, axis=1)
+    y_val_class = np.argmax(y_val.T, axis=1)
+    accuracy = np.mean(y_pred_class == y_val_class)
+    print("Accuracy on validation set:", accuracy)
+
+
+
+
+
 if __name__ == "__main__":
     # Run the test and plot
-    test_sgd()
+    # test_sgd_MSE()
+    Qs3()
