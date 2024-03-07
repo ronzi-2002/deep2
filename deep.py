@@ -56,10 +56,11 @@ def compute_grad_for_MSE(weights, biases, X, y, y_pred):
 
 #Gradient and Jacobian Verification
 # 2.2 implement SGD
-def sgd(weights, biases, X, y,loss_function=cross_entropy_loss_batch,gradient_function=compute_grad, learning_rate=0.1, num_iters=100, batch_size=100):
+def sgd(weights, biases, X, y,loss_function=cross_entropy_loss_batch,gradient_function=compute_grad, learning_rate=0.1, num_iters=100, batch_size=100, x_val=None, y_val=None, early_stopping=True, patience=10):
     losses = []
     all_weights = []
-
+    accuracy_on_train = []
+    accuracy_on_test = []
     for i in range(num_iters):
         # Randomly sample a batch of data points
         indices = np.random.permutation(X.shape[0])
@@ -68,6 +69,7 @@ def sgd(weights, biases, X, y,loss_function=cross_entropy_loss_batch,gradient_fu
         batchesxTrain = [X_train[i:i + batch_size] for i in range(0, X_train.shape[0], batch_size)]
         batchesyTrain = [y_train[i:i + batch_size] for i in range(0, y_train.shape[0], batch_size)]
         iteration_losses = []
+        
         for j in range(len(batchesxTrain)):
             X_batch = batchesxTrain[j]
             y_batch = batchesyTrain[j]
@@ -96,6 +98,25 @@ def sgd(weights, biases, X, y,loss_function=cross_entropy_loss_batch,gradient_fu
         if i > 10 and losses[-1] > np.mean(losses[-10:-1]):
             print("Early stopping at iteration", i)
             break
+        # Compute the accuracy on the training set(on a random batch that is 10% of the data)
+        random_batch = np.random.choice(X.shape[0], size=int(X.shape[0] * 0.1), replace=False)
+        logits = np.dot(X[random_batch], weights) + biases
+        y_pred = softmax(logits)
+        y_pred_class = np.argmax(y_pred, axis=1)
+        y_class = np.argmax(y[random_batch], axis=1)
+        accuracy_on_train.append(np.mean(y_pred_class == y_class))
+        # print("accuracy_on_train" + str(accuracy_on_train))
+        # Compute the accuracy on the validation set
+        if x_val is not None and y_val is not None:
+            # print("x_val" + str(x_val.shape))
+            logits = np.dot(x_val, weights) + biases
+            y_pred = softmax(logits)
+            y_pred_class = np.argmax(y_pred, axis=1)
+            y_class = np.argmax(y_val, axis=1)
+            accuracy_on_test.append(np.mean(y_pred_class == y_class))
+
+
+
 
             
 
@@ -115,7 +136,8 @@ def sgd(weights, biases, X, y,loss_function=cross_entropy_loss_batch,gradient_fu
 
 
 
-
+    if x_val is not None and y_val is not None:
+        return weights, biases, losses, accuracy_on_train, accuracy_on_test
     # print(all_weights)
     return weights, biases, losses
 
@@ -224,24 +246,77 @@ def Qs3():
     
     initial_weights = np.random.randn(input_layer_size, output_layer_size)
     initial_biases = np.random.randn(output_layer_size)
-    # Compute SGD solution
-    final_weights, final_biases, losses = sgd(initial_weights, initial_biases, x_train.T, y_train.T,loss_function=cross_entropy_loss_batch,gradient_function=compute_grad)
-    #plot the losses
+    learning_rates = [0.1, 0.01, 0.001, 0.0001, 0.00001]  # List of learning rates to try
+    batch_sizes = [10, 50, 100]  # List of batch sizes to try
+    # learning_rates = [0.1]
+    # batch_sizes = [10]
+    best_accuracy = 0
+    best_learning_rate = None
+    best_batch_size = None
+
+    for learning_rate in learning_rates:
+        for batch_size in batch_sizes:
+            # Initialize weights and biases for SGD
+            # initial_weights = np.random.randn(input_layer_size, output_layer_size)
+            # initial_biases = np.random.randn(output_layer_size)
+
+            # Run SGD with current learning rate and batch size
+            final_weights, final_biases, losses = sgd(initial_weights, initial_biases, x_train.T, y_train.T,
+                                                        loss_function=cross_entropy_loss_batch,
+                                                        gradient_function=compute_grad,
+                                                        learning_rate=learning_rate,
+                                                        batch_size=batch_size)
+
+            # Compute the accuracy on the validation set
+            logits = np.dot(x_val.T, final_weights) + final_biases
+            y_pred = softmax(logits)
+            y_pred_class = np.argmax(y_pred, axis=1)
+            y_val_class = np.argmax(y_val.T, axis=1)
+            accuracy = np.mean(y_pred_class == y_val_class)
+
+            # Check if current combination is the best so far
+            if accuracy > best_accuracy:
+                best_accuracy = accuracy
+                best_learning_rate = learning_rate
+                best_batch_size = batch_size
+
+    print("Best combination - Learning rate:", best_learning_rate, "Batch size:", best_batch_size)
+
+    # Run SGD with the best combination on the entire dataset
+    final_weights, final_biases, losses, accuracy_on_train, accuracy_on_test = sgd(initial_weights, initial_biases, x_train.T, y_train.T,
+                                                                                  loss_function=cross_entropy_loss_batch,
+                                                                                  gradient_function=compute_grad,
+                                                                                  learning_rate=best_learning_rate,
+                                                                                  batch_size=best_batch_size,
+                                                                                  x_val=x_val.T, y_val=y_val.T)
+    print("accuracy_on_train" + str(accuracy_on_train))
+    print("accuracy_on_test" + str(accuracy_on_test))
+    
+
+    # Plot the losses
     plt.plot(losses)
     plt.title('Loss vs. Iteration')
     plt.xlabel('Iteration')
     plt.ylabel('Loss')
     plt.show()
-    # Compute the loss on the validation set
+
+    # Compute the loss and accuracy on the validation set using the best combination
     logits = np.dot(x_val.T, final_weights) + final_biases
     y_pred = softmax(logits)
     loss = cross_entropy_loss_batch(y_val.T, y_pred)
     print("Loss on validation set:", loss)
-    # Compute the accuracy on the validation set
-    y_pred_class = np.argmax(y_pred, axis=1)
-    y_val_class = np.argmax(y_val.T, axis=1)
-    accuracy = np.mean(y_pred_class == y_val_class)
+    accuracy = np.mean(np.argmax(y_pred, axis=1) == np.argmax(y_val.T, axis=1))
     print("Accuracy on validation set:", accuracy)
+    # Plot the accuracy on the training and validation sets
+    plt.plot(accuracy_on_train, label="Training")
+    plt.plot(accuracy_on_test, label="Validation")
+    plt.title('Accuracy vs. Iteration')
+    plt.xlabel('Iteration')
+    plt.ylabel('Accuracy')
+    plt.legend()
+    plt.show()
+
+
 
 
 
