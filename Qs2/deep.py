@@ -14,10 +14,13 @@ def cross_entropy_loss_single(y, y_hat):#for a single data point
     y_hat = np.clip(y_hat, epsilon, 1 - epsilon)
     return -np.sum(y*np.log(y_hat)) # y_hat is the predicted value, y is the true value
 
+#TODO: This function is 100 percent correct.
 def cross_entropy_loss_batch(y, y_hat):#for a batch of data points
     epsilon = 1e-10  # Small constant to avoid log(0)
     y_hat = np.clip(y_hat, epsilon, 1 - epsilon)
-    return -np.sum(y*np.log(y_hat))/y.shape[0] # y_hat is the predicted value, y is the true value
+    # return -np.sum(y*np.log(y_hat))/y.shape[0] # y_hat is the predicted value, y is the true value
+    return -np.mean(np.sum(y*np.log(y_hat), axis=1))
+ 
 
 '''implement the softmax function'''
 def softmax(logits):
@@ -42,6 +45,21 @@ def compute_grad(weights, biases, X, y, y_pred):
     grad_b = np.sum(y_pred - y, axis=0)/X.shape[0]
     # print(grad_w)
     return grad_w, grad_b
+
+def gradient_test():
+#     Make sure that the derivatives are correct using the
+# gradient test 
+    # Generate random data points
+    np.random.seed(42)
+    X = 2 * np.random.rand(100, 1)
+    y = 4 + 3 * X + np.random.randn(100, 1)
+    # Initialize weights and biases for SGD
+    initial_weights = np.random.randn(1, 1)
+    initial_biases = np.random.randn(1)
+    # Compute gradients using the provided function
+    grad_w, grad_b = compute_grad(initial_weights, initial_biases, X, y)
+    
+
 
 def compute_grad_for_MSE(weights, biases, X, y, y_pred):
     m = len(X)
@@ -244,6 +262,7 @@ def Qs3():
     #we first need to load the data "PeaksData.mat" and then we need to split it into X and y
     # Load the data
     data = scipy.io.loadmat('PeaksData.mat')
+    data = scipy.io.loadmat('GMMData.mat')
     x_train = data['Yt']
     y_train = data['Ct']
     x_val = data['Yv']
