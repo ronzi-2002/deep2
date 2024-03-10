@@ -2,6 +2,7 @@
 from Qs2.deep import cross_entropy_loss_batch
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.io
 class NN:
     def __init__(self, dims, lr=0.1,isResNet=False):
         
@@ -27,7 +28,7 @@ class NN:
             dim = dims[0]
             for i in range(1, len(dims)):
                 if i != len(dims) - 1:
-                    self.layers.append(ResiduaBlock(dim, dims[i], Activation("tanh"), lr=lr))
+                    self.layers.append(ResiduaBlock(dim, dims[i], Activation("tanh"), lr=lr, layerNum=i))
                 else:
                     self.layers.append(Layer(dim, dims[i], Activation("softmax"), lr=lr, layerNum=i))
     def forward(self, x,y  = None):
@@ -162,7 +163,9 @@ class Layer:
         plt.xlabel('power of 0.5 for epsilon')
         plt.title('Difference vs. Epsilon addition to W, layer: ' + str(self.layerNum))
         plt.legend()
-        plt.show()
+        #save the plot in a directory called Jacobian_Test_Regular_NN in the current directory
+        plt.savefig("Jacobian_Test_Regular_NN/layer_"+str(self.layerNum)+"_W.png")
+        plt.clf()
         #continue with biases
         d = np.random.rand(self.b.shape[0], self.b.shape[1])
         d = d/np.linalg.norm(d)
@@ -180,7 +183,8 @@ class Layer:
         plt.xlabel('power of 0.5 for epsilon')
         plt.title('Difference vs. Epsilon addition to b, layer: ' + str(self.layerNum))
         plt.legend()
-        plt.show()
+        plt.savefig("Jacobian_Test_Regular_NN/layer_"+str(self.layerNum)+"_b.png")
+        plt.clf()
         #continue with x
         d = np.random.rand(self.lastInput.shape[0], self.lastInput.shape[1])
         d = d/np.linalg.norm(d)
@@ -198,7 +202,8 @@ class Layer:
         plt.xlabel('power of 0.5 for epsilon')
         plt.title('Difference vs. Epsilon addition to X, layer: ' + str(self.layerNum))
         plt.legend()
-        plt.show()
+        plt.savefig("Jacobian_Test_Regular_NN/layer_"+str(self.layerNum)+"_X.png")
+        plt.clf()
 
         
    
@@ -208,7 +213,7 @@ class Layer:
 
         
 class ResiduaBlock:
-    def __init__(self, input_dim, inner_dim,activation, lr=0.1):
+    def __init__(self, input_dim, inner_dim,activation, lr=0.1, layerNum=0):
         self.layers = []
         self.layers.append(Layer(input_dim, inner_dim, activation, lr=lr))
         self.layers.append(Layer(inner_dim, input_dim, activation, lr=lr))
@@ -217,6 +222,7 @@ class ResiduaBlock:
         self.lastForwardValAfterActivation = None
         self.lastForwardValBeforeActivation = None
         self.lastInput = None
+        self.layerNum = layerNum
     
     def forward(self, x):
         # pretty straight forward
@@ -281,7 +287,8 @@ class ResiduaBlock:
         plt.xlabel('power of 0.5 for epsilon')
         plt.title('Difference vs. Epsilon addition to W1, layer: ' + str(self.layerNum))
         plt.legend()
-        plt.show()
+        plt.savefig("Jacobian_Test_ResNet/layer_"+str(self.layerNum)+"_W1.png")
+        plt.clf()
         #continue with biases
         d = np.random.rand(self.layers[0].b.shape[0], self.layers[0].b.shape[1])
         d = d/np.linalg.norm(d)
@@ -299,7 +306,8 @@ class ResiduaBlock:
         plt.xlabel('power of 0.5 for epsilon')
         plt.title('Difference vs. Epsilon addition to b1, layer: ' + str(self.layerNum))
         plt.legend()
-        plt.show()
+        plt.savefig("Jacobian_Test_ResNet/layer_"+str(self.layerNum)+"_b1.png")
+        plt.clf()
         #continue with weights 2
         d = np.random.rand(self.layers[1].W.shape[0], self.layers[1].W.shape[1])
         d = d/np.linalg.norm(d)
@@ -317,7 +325,8 @@ class ResiduaBlock:
         plt.xlabel('power of 0.5 for epsilon')
         plt.title('Difference vs. Epsilon addition to W2, layer: ' + str(self.layerNum))
         plt.legend()
-        plt.show()
+        plt.savefig("Jacobian_Test_ResNet/layer_"+str(self.layerNum)+"_W2.png")
+        plt.clf()
         #continue with biases 2
         d = np.random.rand(self.layers[1].b.shape[0], self.layers[1].b.shape[1])
         d = d/np.linalg.norm(d)
@@ -335,7 +344,8 @@ class ResiduaBlock:
         plt.xlabel('power of 0.5 for epsilon')
         plt.title('Difference vs. Epsilon addition to b2, layer: ' + str(self.layerNum))
         plt.legend()
-        plt.show()
+        plt.savefig("Jacobian_Test_ResNet/layer_"+str(self.layerNum)+"_b2.png")
+        plt.clf()
         #continue with x
         d = np.random.rand(self.lastInput.shape[0], self.lastInput.shape[1])
         d = d/np.linalg.norm(d)
@@ -353,7 +363,8 @@ class ResiduaBlock:
         plt.xlabel('power of 0.5 for epsilon')
         plt.title('Difference vs. Epsilon addition to X, layer: ' + str(self.layerNum))
         plt.legend()
-        plt.show()
+        plt.savefig("Jacobian_Test_ResNet/layer_"+str(self.layerNum)+"_X.png")
+        plt.clf()
 
 
 
@@ -415,9 +426,95 @@ def runResNetJacTest():
     y = np.random.rand(1, 2)
 
     y= np.array([[1,0]])
-    nn = NN([2, 3, 2], lr=0.1, isResNet=True)
+    nn = NN([2, 3,4, 2], lr=0.1, isResNet=True)
     nn.forward(X.T,y)
     nn.Jacobian_Test()
+
+def training_on_data_sets():
+    #we first need to load the data "PeaksData.mat" and then we need to split it into X and y
+    # Load the data
+    data = scipy.io.loadmat('PeaksData.mat')
+    data = scipy.io.loadmat('GMMData.mat')
+    x_train = data['Yt']
+    y_train = data['Ct']
+    x_val = data['Yv']
+    y_val = data['Cv']
+    # Initialize weights and biases for SGD
+    print("xShape" + str(x_train.shape), "yShape" + str(y_train.shape))
+    # return
+    input_layer_size = x_train.shape[0]
+    output_layer_size = y_train.shape[0]
+    print("input_layer_size: " + str(input_layer_size), "output_layer_size: " + str(output_layer_size))
+    
+    
+    learning_rates = [0.1, 0.01, 0.001, 0.0001, 0.00001]  # List of learning rates to try
+    batch_sizes = [10, 50, 100]  # List of batch sizes to try
+    # learning_rates = [0.1]
+    # batch_sizes = [10]
+    best_accuracy = 0
+    best_learning_rate = None
+    best_batch_size = None
+
+    for learning_rate in learning_rates:
+        for batch_size in batch_sizes:
+            print("learning_rate" + str(learning_rate), "batch_size" + str(batch_size))
+            
+            np.random.seed(42)
+            nn = NN([input_layer_size, 3, output_layer_size], lr=learning_rate)
+            nn.train(x_train.T, y_train.T, 100)
+            y_pred, loss = nn.forward(x_val.T,y_val.T)
+
+            accuracy = np.mean(np.argmax(y_pred, axis=1) == np.argmax(y_val.T, axis=1))
+            
+
+            # Check if current combination is the best so far
+            if accuracy > best_accuracy:
+                best_accuracy = accuracy
+                best_learning_rate = learning_rate
+                best_batch_size = batch_size
+
+    print("Best combination - Learning rate:", best_learning_rate, "Batch size:", best_batch_size)
+
+   #run the network with the best combination on the entire dataset
+    np.random.seed(42)
+    nn = NN([input_layer_size, 3, output_layer_size], lr=best_learning_rate)
+    losses = []
+    accuracy_on_train = []
+    accuracy_on_test = []
+    for epoch in range(100):
+        y_pred, loss = nn.forward(x_train.T,y_train.T)
+        nn.backward()
+        losses.append(loss)
+        accuracy = np.mean(np.argmax(y_pred, axis=1) == np.argmax(y_train.T, axis=1))
+        accuracy_on_train.append(accuracy)
+        y_pred = nn.forward(x_val.T)
+        accuracy = np.mean(np.argmax(y_pred, axis=1) == np.argmax(y_val.T, axis=1))
+        accuracy_on_test.append(accuracy)
+
+    print("accuracy_on_train" + str(accuracy_on_train))
+    print("accuracy_on_test" + str(accuracy_on_test))
+    
+
+    # Plot the losses
+    plt.plot(losses)
+    plt.title('Loss vs. Iteration')
+    plt.xlabel('Iteration')
+    plt.ylabel('Loss')
+    plt.show()
+
+    # Compute the loss and accuracy on the validation set using the best combination
+    y_pred, loss = nn.forward(x_val.T,y_val.T)
+    print("Loss on validation set:", loss)
+    accuracy = np.mean(np.argmax(y_pred, axis=1) == np.argmax(y_val.T, axis=1))
+    print("Accuracy on validation set:", accuracy)
+    # Plot the accuracy on the training and validation sets
+    plt.plot(accuracy_on_train, label="Training")
+    plt.plot(accuracy_on_test, label="Validation")
+    plt.title('Accuracy vs. Iteration')
+    plt.xlabel('Iteration')
+    plt.ylabel('Accuracy')
+    plt.legend()
+    plt.show()
 
 if __name__ == "__main__":
     X = np.random.rand(1, 2)
@@ -449,7 +546,8 @@ if __name__ == "__main__":
     # nn.Jacobian_Test()
     # resNet = NN([2, 3, 2], lr=0.1, isResNet=True)
 
-    runJacTest()
+    # runJacTest()
     # runResNetJacTest()
+    training_on_data_sets()
 
 
