@@ -55,18 +55,18 @@ def compute_grad(weights, biases, X, y, y_pred):
     # print(grad_w)
     return grad_w, grad_b
 
-def gradient_test():
-#     Make sure that the derivatives are correct using the
-# gradient test 
-    # Generate random data points
-    np.random.seed(42)
-    X = 2 * np.random.rand(100, 1)
-    y = 4 + 3 * X + np.random.randn(100, 1)
-    # Initialize weights and biases for SGD
-    initial_weights = np.random.randn(1, 1)
-    initial_biases = np.random.randn(1)
-    # Compute gradients using the provided function
-    grad_w, grad_b = compute_grad(initial_weights, initial_biases, X, y)
+# def gradient_test():
+# #     Make sure that the derivatives are correct using the
+# # gradient test 
+#     # Generate random data points
+#     np.random.seed(42)
+#     X = 2 * np.random.rand(100, 1)
+#     y = 4 + 3 * X + np.random.randn(100, 1)
+#     # Initialize weights and biases for SGD
+#     initial_weights = np.random.randn(1, 1)
+#     initial_biases = np.random.randn(1)
+#     # Compute gradients using the provided function
+#     grad_w, grad_b = compute_grad(initial_weights, initial_biases, X, y)
     
     
 

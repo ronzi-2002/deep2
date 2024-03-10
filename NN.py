@@ -17,9 +17,9 @@ class NN:
             # self.lastForwardVals = []
             for i in range(1, len(dims)):
                 if i != len(dims) - 1:
-                    self.layers.append(Layer(dims[i-1], dims[i], Activation("tanh"), lr=lr, layerNum=i-1))
+                    self.layers.append(Layer(dims[i-1], dims[i], Activation("tanh"), lr=lr, layerNum=i))
                 else:
-                    self.layers.append(Layer(dims[i-1], dims[i], Activation("softmax"), lr=lr, layerNum=i-1))
+                    self.layers.append(Layer(dims[i-1], dims[i], Activation("softmax"), lr=lr, layerNum=i))
             self.loss= None
         else:
             #the dims first value is the input dimension,  all the other values are the dimensions of the inner layers and the last value is the output dimension
@@ -29,7 +29,7 @@ class NN:
                 if i != len(dims) - 1:
                     self.layers.append(ResiduaBlock(dim, dims[i], Activation("tanh"), lr=lr))
                 else:
-                    self.layers.append(Layer(dim, dims[i], Activation("softmax"), lr=lr))
+                    self.layers.append(Layer(dim, dims[i], Activation("softmax"), lr=lr, layerNum=i))
     def forward(self, x,y  = None):
         self.lastForwardVals = []
         final_val = None
@@ -76,9 +76,9 @@ class NN:
         for layer in self.layers:
             print(layer)
     
-    def Jacobian_Test(self):
+    def Jacobian_Test(self, epsilon_iterator = [(0.5) ** i for i in range(0, 10)]):
         for layer in self.layers[:-1]:
-            print("Jacobian: " + str(layer.Jacobian_Test()))
+            layer.Jacobian_Test(epsilon_iterator)
 
 
 class Layer:
@@ -91,6 +91,7 @@ class Layer:
         self.lastForwardValAfterActivation = None
         self.lastForwardValBeforeActivation = None
         self.lastInput = None
+        self.layerNum = layerNum
 
     def forward(self, x):
         # print("W: " + str(self.W) + " b: " + str(self.b))
@@ -112,8 +113,6 @@ class Layer:
         
     def update_weights(self, dx_from_next_layer):#TODO modify this(in resnet too)
         grad_w, grad_b, current_dx = self.gradient(dx_from_next_layer)
-        # print("grad_w: " + str(grad_w))
-        # print("grad_b: " + str(grad_b))
         self.W -= self.lr * grad_w
         self.b -= self.lr * grad_b
         return current_dx
@@ -131,61 +130,81 @@ class Layer:
     #     self.b -= self.lr * grad_b
     #     return np.dot(y_pred - y, self.W.T)
     
-    def set_param(self, name, value):
-        if name == 'W':
-            self.W = value
-        elif name == 'b':
-            self.b = value
-        elif name == 'X':
-            self.lastInput = value
-
-        else:
-            print("Parameter not found")
     def __str__(self):
         return "W: " + str(self.W) + " b: " + str(self.b)+ "activation: " + str(self.activation)
-    def Jacobian_Test(self):
-        #TODO refine this
-        epsilon = [(0.5) ** i for i in range(0, 10)]
+    def Jacobian_Test(self, epsilon_iterator = [(0.5) ** i for i in range(0, 10)]):
         u = np.random.rand(self.W.shape[0], self.lastInput.shape[1])  
-        dW, dB, dX= self.gradient(u)
-        parameters = [(self.lastInput, "dX", dX, 'X'), (self.W, "dW", dW, 'W'), (self.b, "dB", dB, 'b')]
-        self.perform_jac_test(parameters, epsilon, u, "1")
+        grad_w, grad_b, grad_x= self.gradient(u)
+        #similiar to gradient test we did in the previous QS
+        grad_diffs_w = []
+        grad_diffs_w_grad = []
+        grad_diffs_b = []
+        grad_diffs_b_grad = []
+        grad_diffs_x = []
+        grad_diffs_x_grad = []
+        base_forward = np.vdot(u, self.forward(self.lastInput))
 
+        #starting from weights
+        d = np.random.rand(self.W.shape[0], self.W.shape[1])
+        #normalize the d vector
+        d = d/np.linalg.norm(d)
+        for eps in epsilon_iterator:
+            self.W += d * eps
+            afterForward = self.forward(self.lastInput)
+            forward_after_eps = np.vdot(u, afterForward)
+            self.W -= d * eps
+            grad_diffs_w.append(np.abs(forward_after_eps - base_forward))
+            grad_diffs_w_grad.append(np.abs(forward_after_eps - base_forward - np.vdot(d, grad_w) * eps))
+        plt.plot(grad_diffs_w,label= "difference without grad")
+        plt.plot(grad_diffs_w_grad, label="difference with grad")
+        plt.yscale('log')
+        plt.ylabel('Difference in Log Scale')
+        plt.xlabel('power of 0.5 for epsilon')
+        plt.title('Difference vs. Epsilon addition to W, layer: ' + str(self.layerNum))
+        plt.legend()
+        plt.show()
+        #continue with biases
+        d = np.random.rand(self.b.shape[0], self.b.shape[1])
+        d = d/np.linalg.norm(d)
+        for eps in epsilon_iterator:
+            self.b += d * eps
+            afterForward = self.forward(self.lastInput)
+            forward_after_eps = np.vdot(u, afterForward)
+            self.b -= d * eps
+            grad_diffs_b.append(np.abs(forward_after_eps - base_forward))
+            grad_diffs_b_grad.append(np.abs(forward_after_eps - base_forward - np.vdot(d, grad_b) * eps))
+        plt.plot(grad_diffs_b,label= "difference without grad")
+        plt.plot(grad_diffs_b_grad, label="difference with grad")
+        plt.yscale('log')
+        plt.ylabel('Difference in Log Scale')
+        plt.xlabel('power of 0.5 for epsilon')
+        plt.title('Difference vs. Epsilon addition to b, layer: ' + str(self.layerNum))
+        plt.legend()
+        plt.show()
+        #continue with x
+        d = np.random.rand(self.lastInput.shape[0], self.lastInput.shape[1])
+        d = d/np.linalg.norm(d)
+        for eps in epsilon_iterator:
+            self.lastInput += d * eps
+            afterForward = self.forward(self.lastInput)
+            forward_after_eps = np.vdot(u, afterForward)
+            self.lastInput -= d * eps
+            grad_diffs_x.append(np.abs(forward_after_eps - base_forward))
+            grad_diffs_x_grad.append(np.abs(forward_after_eps - base_forward - np.vdot(d, grad_x) * eps))
+        plt.plot(grad_diffs_x,label= "difference without grad")
+        plt.plot(grad_diffs_x_grad, label="difference with grad")
+        plt.yscale('log')
+        plt.ylabel('Difference in Log Scale')
+        plt.xlabel('power of 0.5 for epsilon')
+        plt.title('Difference vs. Epsilon addition to X, layer: ' + str(self.layerNum))
+        plt.legend()
+        plt.show()
 
+        
    
 
 
-    def perform_jac_test(self, parameters, epsilon, u, layer_title):
-        for (param, param_name, gradient, name) in parameters:
-            o_eps = []
-            o_eps_squared = []
-
-            d = np.random.rand(*param.shape)
-            d = d / np.linalg.norm(d)
-
-            for eps in epsilon:
-                temp = param.copy()
-                self.set_param(name, param + d * eps)
-                afterForward = self.forward(self.lastInput)
-                f_x_eps = np.vdot(u, self.forward(self.lastInput))
-                self.set_param(name, temp)
-                f_x = np.vdot(u, self.forward(self.lastInput))
-
-                o_eps.append(np.abs(f_x_eps - f_x))
-
-                temp_gradient = np.vdot(d, gradient) * eps
-                temp_o_squared = np.abs(f_x_eps - f_x - temp_gradient)
-                o_eps_squared.append(temp_o_squared)
-
-            plt.plot(o_eps, label="without gradient", color="red")
-            plt.plot(o_eps_squared, label="with gradient", color="blue")
-            plt.yscale("log")
-            # plt.xscale("log")
-            # plt.xlabel("epsilon")
-            plt.ylabel("difference")
-            plt.legend()
-            plt.title("title")
-            plt.show()
+    
 
         
 class ResiduaBlock:
@@ -226,6 +245,120 @@ class ResiduaBlock:
         self.layers[1].b -= self.lr * grad_b2
         return current_dx
     
+    def Jacobian_Test(self, epsilon_iterator = [(0.5) ** i for i in range(0, 10)]):
+        #TODO refine this
+        
+        u = np.random.rand(self.layers[1].W.shape[0], self.lastInput.shape[1])  
+        grad_w1, grad_b1, grad_w2, grad_b2, grad_x= self.gradient(u)
+        #similiar to gradient test we did in the previous QS
+        grad_diffs_w1 = []
+        grad_diffs_w1_grad = []
+        grad_diffs_b1 = []
+        grad_diffs_b1_grad = []
+        grad_diffs_w2 = []
+        grad_diffs_w2_grad = []
+        grad_diffs_b2 = []
+        grad_diffs_b2_grad = []
+        grad_diffs_x = []
+        grad_diffs_x_grad = []
+        base_forward = np.vdot(u, self.forward(self.lastInput))
+
+        #starting from weights
+        d = np.random.rand(self.layers[0].W.shape[0], self.layers[0].W.shape[1])
+        #normalize the d vector
+        d = d/np.linalg.norm(d)
+        for eps in epsilon_iterator:
+            self.layers[0].W += d * eps
+            afterForward = self.forward(self.lastInput)
+            forward_after_eps = np.vdot(u, afterForward)
+            self.layers[0].W -= d * eps
+            grad_diffs_w1.append(np.abs(forward_after_eps - base_forward))
+            grad_diffs_w1_grad.append(np.abs(forward_after_eps - base_forward - np.vdot(d, grad_w1) * eps))
+        plt.plot(grad_diffs_w1,label= "difference without grad")
+        plt.plot(grad_diffs_w1_grad, label="difference with grad")
+        plt.yscale('log')
+        plt.ylabel('Difference in Log Scale')
+        plt.xlabel('power of 0.5 for epsilon')
+        plt.title('Difference vs. Epsilon addition to W1, layer: ' + str(self.layerNum))
+        plt.legend()
+        plt.show()
+        #continue with biases
+        d = np.random.rand(self.layers[0].b.shape[0], self.layers[0].b.shape[1])
+        d = d/np.linalg.norm(d)
+        for eps in epsilon_iterator:
+            self.layers[0].b += d * eps
+            afterForward = self.forward(self.lastInput)
+            forward_after_eps = np.vdot(u, afterForward)
+            self.layers[0].b -= d * eps
+            grad_diffs_b1.append(np.abs(forward_after_eps - base_forward))
+            grad_diffs_b1_grad.append(np.abs(forward_after_eps - base_forward - np.vdot(d, grad_b1) * eps))
+        plt.plot(grad_diffs_b1,label= "difference without grad")
+        plt.plot(grad_diffs_b1_grad, label="difference with grad")
+        plt.yscale('log')
+        plt.ylabel('Difference in Log Scale')
+        plt.xlabel('power of 0.5 for epsilon')
+        plt.title('Difference vs. Epsilon addition to b1, layer: ' + str(self.layerNum))
+        plt.legend()
+        plt.show()
+        #continue with weights 2
+        d = np.random.rand(self.layers[1].W.shape[0], self.layers[1].W.shape[1])
+        d = d/np.linalg.norm(d)
+        for eps in epsilon_iterator:
+            self.layers[1].W += d * eps
+            afterForward = self.forward(self.lastInput)
+            forward_after_eps = np.vdot(u, afterForward)
+            self.layers[1].W -= d * eps
+            grad_diffs_w2.append(np.abs(forward_after_eps - base_forward))
+            grad_diffs_w2_grad.append(np.abs(forward_after_eps - base_forward - np.vdot(d, grad_w2) * eps))
+        plt.plot(grad_diffs_w2,label= "difference without grad")
+        plt.plot(grad_diffs_w2_grad, label="difference with grad")
+        plt.yscale('log')
+        plt.ylabel('Difference in Log Scale')
+        plt.xlabel('power of 0.5 for epsilon')
+        plt.title('Difference vs. Epsilon addition to W2, layer: ' + str(self.layerNum))
+        plt.legend()
+        plt.show()
+        #continue with biases 2
+        d = np.random.rand(self.layers[1].b.shape[0], self.layers[1].b.shape[1])
+        d = d/np.linalg.norm(d)
+        for eps in epsilon_iterator:
+            self.layers[1].b += d * eps
+            afterForward = self.forward(self.lastInput)
+            forward_after_eps = np.vdot(u, afterForward)
+            self.layers[1].b -= d * eps
+            grad_diffs_b2.append(np.abs(forward_after_eps - base_forward))
+            grad_diffs_b2_grad.append(np.abs(forward_after_eps - base_forward - np.vdot(d, grad_b2) * eps))
+        plt.plot(grad_diffs_b2,label= "difference without grad")
+        plt.plot(grad_diffs_b2_grad, label="difference with grad")
+        plt.yscale('log')
+        plt.ylabel('Difference in Log Scale')
+        plt.xlabel('power of 0.5 for epsilon')
+        plt.title('Difference vs. Epsilon addition to b2, layer: ' + str(self.layerNum))
+        plt.legend()
+        plt.show()
+        #continue with x
+        d = np.random.rand(self.lastInput.shape[0], self.lastInput.shape[1])
+        d = d/np.linalg.norm(d)
+        for eps in epsilon_iterator:
+            self.lastInput += d * eps
+            afterForward = self.forward(self.lastInput)
+            forward_after_eps = np.vdot(u, afterForward)
+            self.lastInput -= d * eps
+            grad_diffs_x.append(np.abs(forward_after_eps - base_forward))
+            grad_diffs_x_grad.append(np.abs(forward_after_eps - base_forward - np.vdot(d, grad_x) * eps))
+        plt.plot(grad_diffs_x,label= "difference without grad")
+        plt.plot(grad_diffs_x_grad, label="difference with grad")
+        plt.yscale('log')
+        plt.ylabel('Difference in Log Scale')
+        plt.xlabel('power of 0.5 for epsilon')
+        plt.title('Difference vs. Epsilon addition to X, layer: ' + str(self.layerNum))
+        plt.legend()
+        plt.show()
+
+
+
+
+
     def __str__(self):
         return "W: " + str(self.W) + " b: " + str(self.b)+ "activation: " + str(self.activation)
 
@@ -273,7 +406,16 @@ def runJacTest():
     y = np.random.rand(1, 2)
 
     y= np.array([[1,0]])
-    nn = NN([2, 3, 2], lr=0.1)
+    nn = NN([2, 3,4, 2], lr=0.1)
+    nn.forward(X.T,y)
+    nn.Jacobian_Test()
+
+def runResNetJacTest():
+    X = np.random.rand(1, 2)
+    y = np.random.rand(1, 2)
+
+    y= np.array([[1,0]])
+    nn = NN([2, 3, 2], lr=0.1, isResNet=True)
     nn.forward(X.T,y)
     nn.Jacobian_Test()
 
@@ -302,7 +444,12 @@ if __name__ == "__main__":
     # print(resNet.predict(X.T))
     # print(y)
 
-    nn = NN([2, 3, 2], lr=0.1)
-    nn.forward(X.T,y)
-    nn.Jacobian_Test()
+    # nn = NN([2, 3, 2], lr=0.1)
+    # nn.forward(X.T,y)
+    # nn.Jacobian_Test()
+    # resNet = NN([2, 3, 2], lr=0.1, isResNet=True)
+
+    runJacTest()
+    # runResNetJacTest()
+
 
