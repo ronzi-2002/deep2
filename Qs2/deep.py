@@ -7,7 +7,7 @@ You should demonstrate and submit the results of the gradient test.
 import numpy as np
 import matplotlib.pyplot as plt
 from copy import deepcopy
-import scipy.io
+# import scipy.io
 '''implement the cross entropy loss function'''
 def cross_entropy_loss_single(y, y_hat):#for a single data point
     epsilon = 1e-10  # Small constant to avoid log(0)
