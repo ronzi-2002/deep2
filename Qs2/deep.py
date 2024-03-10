@@ -19,12 +19,17 @@ def cross_entropy_loss_batch(y, y_hat):#for a batch of data points
     epsilon = 1e-10  # Small constant to avoid log(0)
     y_hat = np.clip(y_hat, epsilon, 1 - epsilon)
     # return -np.sum(y*np.log(y_hat))/y.shape[0] # y_hat is the predicted value, y is the true value
-    return -np.mean(np.sum(y*np.log(y_hat), axis=1))
+    return -np.mean(np.sum(y.T*np.log(y_hat), axis=1))
  
 
-'''implement the softmax function'''
-def softmax(logits):
-    return np.exp(logits)/np.sum(np.exp(logits), axis=1, keepdims=True)
+
+def softmax(x):
+    tempExp = np.exp(x)
+    tempSum = np.sum(tempExp, axis=1, keepdims=True)
+    #divide each value in x by the sum of the row
+    retVal = tempExp / tempSum
+    return retVal
+    return np.exp(x)/np.sum(np.exp(x), axis=1, keepdims=True)
 
 #calculating the loss function for softmax regression given the weights and biases
 def softmax_regression_loss(weights, biases, X, y, y_pred):
@@ -43,6 +48,10 @@ def compute_grad(weights, biases, X, y, y_pred):
     # if np.min(y_pred - y) > 0:
     # print("y_pred - y" + str(np.min(y_pred - y))+str(np.max(y_pred - y)))
     grad_b = np.sum(y_pred - y, axis=0)/X.shape[0]
+
+
+
+    
     # print(grad_w)
     return grad_w, grad_b
 
@@ -58,6 +67,7 @@ def gradient_test():
     initial_biases = np.random.randn(1)
     # Compute gradients using the provided function
     grad_w, grad_b = compute_grad(initial_weights, initial_biases, X, y)
+    
     
 
 

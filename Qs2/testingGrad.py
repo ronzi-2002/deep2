@@ -440,16 +440,63 @@ def gradient_test_ploting_functions(weights, biases, X, y, initial_epsilon=100, 
 
 
 
+def gradient_test_ploting_functions_byLecture(weights, biases, X, y, initial_epsilon=100, epsilon_iterator = [(0.5**(i)) for i in range(11)]):
+    # Compute gradients using the provided function
+    logits = np.dot(X, weights) + biases
+    y_pred = softmax(logits) #this is the base prediction
+    grad_w, grad_b = compute_grad(weights, biases, X, y,y_pred) #this is the base gradient
+    grad_x= np.mean(np.dot(weights, (y_pred - y).T))
+    base_loss = softmax_regression_loss(weights, biases, X, y, y_pred)
+    print("y_pred", y_pred)
+
+    grad_diffs_w = []
+    grad_diffs_w_grad = []
+    grad_diffs_b = []
+    grad_diffs_b_grad = []
+    grad_diffs_x = []
+    grad_diffs_x_grad = []
+
+
+    #starting from weights
+    d = np.random.rand(weights.shape[0], weights.shape[1])
+    #normalize the d vector
+    d = d/np.linalg.norm(d)
+
+    for epsilon in epsilon_iterator:
+        
+        weights_plus = weights.copy()
+        weights_plus += epsilon*d
+        print("weights_plus", weights_plus)
+        y_pred_plus = softmax(np.dot(X, weights_plus) + biases)
+        print ("y_pred_plus", y_pred_plus)
+        loss_plus = softmax_regression_loss(weights_plus, biases, X, y, y_pred_plus)
+        grad_w_plus = abs(loss_plus - base_loss)
+        grad_diffs_w.append(copy.deepcopy( grad_w_plus))
+        grad_diffs_w_grad.append(abs(loss_plus-base_loss- np.vdot(d,grad_w)*epsilon))
+    #plot a graph with both grad_diffs_w and grad_diffs_w_grad on the same graph
+    #x axis is the epsilons power(from 0 to 10)
+    plt.plot(grad_diffs_w,label= "loss difference")
+    plt.plot(grad_diffs_w_grad, label="loss difference with grad")
+    plt.yscale('log')
+    plt.legend()
+    plt.show()
 
     
+
+
+
     
 
 # Example usage
 # Define your data (X, y), weights, and biases
+np.random.seed(42)
+# (n,m)
+
 X = np.random.rand(1, 1) #100 data points, each 1 features
+# (l,m)
 y = np.eye(1, 5)  # Assuming 5 classes for softmax regression , one-hot encoding
 weights = np.random.rand(1, 5) # 1 feature, 3 classes
-biases = np.random.rand(5)
+biases = np.random.rand(1,5)
 print(weights)
 # Perform the gradient test
 
@@ -457,5 +504,6 @@ print(weights)
 
 # gradient_test_by_lecture_notes_linear_dec_2(weights, biases, X, y, initial_epsilon=1)
 # gradient_test_by_lecture_notes_linear_exponantial(weights, biases, X, y, initial_epsilon=1)
-gradient_test_ploting_functions(weights, biases, X, y, initial_epsilon=1, epsilon_iterator = [1/(10**i) for i in range(11)])
 # gradient_test_ploting_functions(weights, biases, X, y, initial_epsilon=1, epsilon_iterator = [1/(10**i) for i in range(11)])
+# gradient_test_ploting_functions(weights, biases, X, y, initial_epsilon=1, epsilon_iterator = [1/(10**i) for i in range(11)])
+gradient_test_ploting_functions_byLecture(weights, biases, X, y, initial_epsilon=1, epsilon_iterator = [(0.5**(i)) for i in range(11)])
