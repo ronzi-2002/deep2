@@ -117,6 +117,37 @@ class Layer:
 
     def __str__(self):
         return "W: " + str(self.W) + " b: " + str(self.b)+ "activation: " + str(self.activation)
+
+class residualLayer:
+    def __init__(self, input_dim, output_dim,activation, lr=0.1):
+        self.W = np.random.rand(output_dim, input_dim)
+        self.b = np.random.rand(output_dim,1)
+        self.lr = lr
+        self.activation = activation
+        self.lastForwardValAfterActivation = None
+        self.lastForwardValBeforeActivation = None
+        self.lastInput = None
+
+    def forward(self, x):
+        self.lastInput = x
+        self.lastForwardValBeforeActivation = np.dot(self.W, x) + self.b
+        self.lastForwardValAfterActivation = self.activation.forward(self.lastForwardValBeforeActivation)
+        return self.lastForwardValAfterActivation
+
+    def gradient(self, dx_from_next_layer):
+        grad_w = np.dot(self.lastInput.T, dx_from_next_layer * self.activation.backward(self.lastForwardValBeforeActivation))
+        grad_b = np.sum(dx_from_next_layer * self.activation.backward(self.lastForwardValBeforeActivation), axis=1, keepdims=True)
+        current_dx = np.dot(self.W.T,(dx_from_next_layer * self.activation.backward(self.lastForwardValBeforeActivation)))
+        return grad_w, grad_b, current_dx
+        
+    def update_weights(self, dx_from_next_layer):
+        grad_w, grad_b, current_dx = self.gradient(dx_from_next_layer)
+        self.W -= self.lr * grad_w
+        self.b -= self.lr * grad_b
+        return current_dx
+
+    def __str__(self):
+        return "W: " + str(self.W) + " b: " + str(self.b)+ "activation: " + str(self.activation)
 class Activation:
     def __init__(self, activation):
         self.activation = activation
