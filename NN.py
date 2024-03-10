@@ -461,8 +461,8 @@ def training_on_data_sets():
             
             np.random.seed(42)
             nn = NN([input_layer_size, 3, output_layer_size], lr=learning_rate)
-            nn.train(x_train.T, y_train.T, 100)
-            y_pred, loss = nn.forward(x_val.T,y_val.T)
+            nn.train(x_train, y_train, 100)
+            y_pred, loss = nn.forward(x_val,y_val)
 
             accuracy = np.mean(np.argmax(y_pred, axis=1) == np.argmax(y_val.T, axis=1))
             
