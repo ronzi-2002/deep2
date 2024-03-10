@@ -43,11 +43,11 @@ def compute_grad(weights, biases, X, y, y_pred):
     # logits = np.dot(X, weights) + biases
     # y_pred = softmax(logits)
     # print ("y_pred" + str(y_pred))
-    grad_w = np.dot(X.T, y_pred - y)/X.shape[0]
+    grad_w = np.dot(X.T, y_pred - y.T)/X.shape[0]
     #if minimal value of y_pred -y is positive, print it
     # if np.min(y_pred - y) > 0:
     # print("y_pred - y" + str(np.min(y_pred - y))+str(np.max(y_pred - y)))
-    grad_b = np.sum(y_pred - y, axis=0)/X.shape[0]
+    grad_b = np.sum(y_pred - y.T, axis=0)/X.shape[0]
 
 
 
