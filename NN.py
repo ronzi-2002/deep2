@@ -32,6 +32,7 @@ class NN:
                 else:
                     self.layers.append(Layer(dim, dims[i], Activation("softmax"), lr=lr, layerNum=i))
     def forward(self, x,y  = None):
+        
         self.lastForwardVals = []
         final_val = None
         for layer in self.layers:
@@ -39,19 +40,21 @@ class NN:
             self.lastForwardVals.append(x)
             final_val= x
         # print("last val: " + str(final_val) + " y: " + str(y))
-        loss = cross_entropy_loss_batch(y.T, final_val)
-        return x, loss
-    
-    def backward(self):
+        if y is not None:
+            loss = cross_entropy_loss_batch(y, final_val)
+            return x, loss
+        return x
+    def backward(self,y):
         #we treat the last layer differently
-        dx,dw,db = self.get_last_dx_dw_db()
+        dx,dw,db = self.get_last_dx_dw_db(y)
         self.layers[-1].W -= self.layers[-1].lr * dw
         self.layers[-1].b -= self.layers[-1].lr * db
         for layer in reversed(self.layers[:-1]):
             dx = layer.update_weights(dx)
         
-    def get_last_dx_dw_db(self):
+    def get_last_dx_dw_db(self, y):
         lastLayer = self.layers[-1]
+        yTemp = y
         # print("shape: " + str(lastLayer.lastForwardValAfterActivation.shape) + " - " + str(y.shape))
         # print("shape: " + str(lastLayer.W.shape))   
         dx=  np.mean(np.dot(lastLayer.W.T,(lastLayer.lastForwardValAfterActivation.T - y).T))
@@ -60,15 +63,33 @@ class NN:
         # if np.min(y_pred - y) > 0:
         # print("y_pred - y" + str(np.min(y_pred - y))+str(np.max(y_pred - y)))
         grad_b = np.sum( lastLayer.lastForwardValAfterActivation.T - y, axis=0)/lastLayer.lastInput.shape[0]
-        return dx, grad_w.T, grad_b.reshape(2,1)
+        return dx, grad_w.T, grad_b.reshape(grad_b.shape[0],1)
         return
         return np.dot((lastLayer.lastForwardValAfterActivation - y), lastLayer.W.T)
-    def train(self, X, y, num_epochs):
+    def train(self, X, y, num_epochs, batch_size=1):
+        losses = []
+        validation_losses = []
         for epoch in range(num_epochs):
-            # print("weights: " + str(self.layers[0].W) + " biases: " + str(self.layers[0].b))
-            y_pred, loss = self.forward(X,y)
-            self.loss = loss
-            self.backward()
+            indices = np.random.permutation(X.shape[1])
+            X_train = X[:, indices]
+            # y= y.T
+            y_train = y[:,indices]
+            # split the data into batches
+            batchesxTrain = np.array_split(X_train, X_train.shape[1] / batch_size, axis=1)
+            batchesyTrain = np.array_split(y_train, y_train.shape[1] / batch_size, axis=1)
+            iteration_losses = []
+            iteration_val_losses=[]
+            for i in range(len(batchesxTrain)):
+                curr_X = batchesxTrain[i]
+                curr_y = batchesyTrain[i]
+                curr_y = curr_y.T
+                y_pred, loss = self.forward(curr_X,curr_y)
+                self.loss = loss
+                self.backward(curr_y)
+                iteration_losses.append(loss)
+            losses.append(np.mean(iteration_losses))
+            loss = losses[-1]
+
             print("Epoch: " + str(epoch) + " Loss: " + str(loss))
     def predict(self, X):
         return self.forward(X)
@@ -418,7 +439,7 @@ def runJacTest():
 
     y= np.array([[1,0]])
     nn = NN([2, 3,4, 2], lr=0.1)
-    nn.forward(X.T,y)
+    nn.forward(X.T)
     nn.Jacobian_Test()
 
 def runResNetJacTest():
@@ -427,14 +448,14 @@ def runResNetJacTest():
 
     y= np.array([[1,0]])
     nn = NN([2, 3,4, 2], lr=0.1, isResNet=True)
-    nn.forward(X.T,y)
+    nn.forward(X.T)
     nn.Jacobian_Test()
 
 def training_on_data_sets():
     #we first need to load the data "PeaksData.mat" and then we need to split it into X and y
     # Load the data
     data = scipy.io.loadmat('PeaksData.mat')
-    data = scipy.io.loadmat('GMMData.mat')
+    # data = scipy.io.loadmat('GMMData.mat')
     x_train = data['Yt']
     y_train = data['Ct']
     x_val = data['Yv']
@@ -461,7 +482,7 @@ def training_on_data_sets():
             
             np.random.seed(42)
             nn = NN([input_layer_size, 3, output_layer_size], lr=learning_rate)
-            nn.train(x_train, y_train, 100)
+            nn.train(x_train, y_train, 100, batch_size=batch_size)
             y_pred, loss = nn.forward(x_val,y_val)
 
             accuracy = np.mean(np.argmax(y_pred, axis=1) == np.argmax(y_val.T, axis=1))
@@ -482,7 +503,7 @@ def training_on_data_sets():
     accuracy_on_train = []
     accuracy_on_test = []
     for epoch in range(100):
-        y_pred, loss = nn.forward(x_train.T,y_train.T)
+        y_pred, loss = nn.forward(x_train.T,y_train)
         nn.backward()
         losses.append(loss)
         accuracy = np.mean(np.argmax(y_pred, axis=1) == np.argmax(y_train.T, axis=1))
@@ -516,16 +537,39 @@ def training_on_data_sets():
     plt.legend()
     plt.show()
 
-if __name__ == "__main__":
+def very_simple_toy_example():
     X = np.random.rand(1, 2)
     y = np.random.rand(1, 2)
 
     y= np.array([[1,0]])
     nn = NN([2, 3, 2], lr=0.1)
-    
-    # print(nn.__str__()) 
-    # print(nn.predict(X.T))
+    differences = []
+    print(np.mean(abs(nn.predict(X.T) - y.T)))
+    differences.append(np.mean(abs(nn.predict(X.T) - y.T)))
     nn.train(X.T, y.T, 10)
+    print(np.mean(abs(nn.predict(X.T) - y.T)))
+    differences.append(np.mean(abs(nn.predict(X.T) - y.T)))
+    nn.train(X.T, y.T, 100)
+    print(np.mean(abs(nn.predict(X.T) - y.T)))
+    differences.append(np.mean(abs(nn.predict(X.T) - y.T)))
+
+    plt.plot(differences)
+    plt.ylabel('Difference')
+    plt.show()
+
+
+    
+
+if __name__ == "__main__":
+    # X = np.random.rand(1, 2)
+    # y = np.random.rand(1, 2)
+
+    # y= np.array([[1,0]])
+    # nn = NN([2, 3, 2], lr=0.1)
+    
+    # # print(nn.__str__()) 
+    # print(nn.predict(X.T))
+    # nn.train(X.T, y.T, 10)
     # print(nn.predict(X.T))
     # nn.train(X.T, y.T, 100)
     # print(nn.predict(X.T))
@@ -548,6 +592,6 @@ if __name__ == "__main__":
 
     # runJacTest()
     # runResNetJacTest()
-    training_on_data_sets()
-
+    # training_on_data_sets()
+    very_simple_toy_example()
 

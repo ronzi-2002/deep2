@@ -19,7 +19,7 @@ def cross_entropy_loss_batch(y, y_hat):#for a batch of data points
     epsilon = 1e-10  # Small constant to avoid log(0)
     y_hat = np.clip(y_hat, epsilon, 1 - epsilon)
     # return -np.sum(y*np.log(y_hat))/y.shape[0] # y_hat is the predicted value, y is the true value
-    return -np.mean(np.sum(y.T*np.log(y_hat), axis=1))
+    return -np.mean(np.sum(y.T*np.log(y_hat), axis=1))#for running the data sets, y is run as is. for JAC/Grad tests, it needs to be transposed
  
 
 
