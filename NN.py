@@ -52,7 +52,7 @@ class NN:
         self.layers[-1].W -= self.layers[-1].lr * dw
         self.layers[-1].b -= self.layers[-1].lr * db
         for layer in reversed(self.layers[:-1]):
-            dx = layer.update_weights(dx)
+            dx = layer.backward(dx)
         
     def get_last_dx_dw_db(self, y):
         lastLayer = self.layers[-1]
@@ -149,19 +149,7 @@ class Layer:
         self.lastInput = None
         self.layerNum = layerNum
 
-    #TODO modify this
-    def set_param(self, param, value):
-        if param == 'W':
-            self.W = value
-        elif param == 'b':
-            self.b = value
-        elif param == 'X':
-            self.X = value
-
     def forward(self, x):
-        # print("W: " + str(self.W) + " b: " + str(self.b))
-        # print("WShape: " + str(self.W.shape) + " bShape: " + str(self.b.shape) + " xShape: " + str(x.shape))
-        
         #dont touch this
         self.lastInput = x
 
@@ -169,7 +157,7 @@ class Layer:
         self.lastForwardValAfterActivation = self.activation.forward(self.lastForwardValBeforeActivation)
         return self.lastForwardValAfterActivation
 
-    def gradient(self, dx_from_next_layer):
+    def get_gradients(self, dx_from_next_layer):
         # print("dx_from_next_layer: " + str(dx_from_next_layer))
         # print("self.activation.backward(self.lastForwardValBeforeActivation): " + str(self.activation.backward(self.lastForwardValBeforeActivation)))
         # print("self.lastInput.T: " + str(self.lastInput.T))
@@ -180,8 +168,8 @@ class Layer:
         current_dx = np.dot(self.W.T,(dx_from_next_layer * self.activation.backward(self.lastForwardValBeforeActivation)))
         return grad_w, grad_b, current_dx
         
-    def update_weights(self, dx_from_next_layer):#TODO modify this(in resnet too)
-        grad_w, grad_b, current_dx = self.gradient(dx_from_next_layer)
+    def backward(self, dx_from_next_layer):#TODO modify this(in resnet too)
+        grad_w, grad_b, current_dx = self.get_gradients(dx_from_next_layer)
         self.W -= self.lr * grad_w
         self.b -= self.lr * grad_b
         return current_dx
@@ -204,7 +192,7 @@ class Layer:
         return f"In_D: {self.W.shape[1]}, O_D: {self.W.shape[0]}, ac: {self.activation.activation}"
     def Jacobian_Test(self, epsilon_iterator = [(0.5) ** i for i in range(0, 10)]):
         u = np.random.rand(self.W.shape[0], self.lastInput.shape[1])  
-        grad_w, grad_b, grad_x= self.gradient(u)
+        grad_w, grad_b, grad_x= self.get_gradients(u)
         #similiar to gradient test we did in the previous QS
         grad_diffs_w = []
         grad_diffs_w_grad = []
@@ -300,20 +288,19 @@ class ResiduaBlock:
         self.lastForwardValAfterActivation = self.activation.forward(self.lastForwardValBeforeActivation)
         return self.lastForwardValAfterActivation
     
-    def gradient(self, dx_from_next_layer):
+    def get_gradients(self, dx_from_next_layer):
 
-        activation_grad = self.activation.backward(self.lastForwardValBeforeActivation)
-        grad_w2 = dx_from_next_layer * np.dot(activation_grad, self.layers[0].lastForwardValAfterActivation.T)
-        grad_b2 = np.sum(dx_from_next_layer * activation_grad, axis=1, keepdims=True)
-        dA = np.dot(self.layers[1].W.T,(dx_from_next_layer * activation_grad))
-        activation_grad = self.activation.backward(self.layers[0].lastForwardValBeforeActivation)
-        grad_w1 = dA * np.dot(activation_grad, self.lastInput.T)
-        grad_b1 = np.sum(dA * activation_grad, axis=1, keepdims=True)
-        current_dx = np.dot( self.layers[0].W.T,(dA * activation_grad))+dx_from_next_layer*self.activation.backward(self.lastForwardValBeforeActivation)
+
+        grad_w2 = dx_from_next_layer * np.dot(self.activation.backward(self.lastForwardValBeforeActivation), self.layers[0].lastForwardValAfterActivation.T)
+        grad_b2 = np.sum(dx_from_next_layer * self.activation.backward(self.lastForwardValBeforeActivation), axis=1, keepdims=True)
+        grad_A = np.dot(self.layers[1].W.T,(dx_from_next_layer * self.activation.backward(self.lastForwardValBeforeActivation)))
+        grad_w1 = grad_A * np.dot(self.activation.backward(self.layers[0].lastForwardValBeforeActivation), self.lastInput.T)
+        grad_b1 = np.sum(grad_A * self.activation.backward(self.layers[0].lastForwardValBeforeActivation), axis=1, keepdims=True)
+        current_dx = np.dot( self.layers[0].W.T,(grad_A * self.activation.backward(self.layers[0].lastForwardValBeforeActivation)))+dx_from_next_layer*self.activation.backward(self.lastForwardValBeforeActivation)
         return grad_w1, grad_b1, grad_w2, grad_b2, current_dx
     
-    def update_weights(self, dx_from_next_layer):
-        grad_w1, grad_b1, grad_w2, grad_b2, current_dx = self.gradient(dx_from_next_layer)
+    def backward(self, dx_from_next_layer):
+        grad_w1, grad_b1, grad_w2, grad_b2, current_dx = self.get_gradients(dx_from_next_layer)
         self.layers[0].W -= self.lr * grad_w1
         self.layers[0].b -= self.lr * grad_b1
         self.layers[1].W -= self.lr * grad_w2
@@ -321,10 +308,8 @@ class ResiduaBlock:
         return current_dx
     
     def Jacobian_Test(self, epsilon_iterator = [(0.5) ** i for i in range(0, 10)]):
-        #TODO refine this
-        
         u = np.random.rand(self.layers[1].W.shape[0], self.lastInput.shape[1])  
-        grad_w1, grad_b1, grad_w2, grad_b2, grad_x= self.gradient(u)
+        grad_w1, grad_b1, grad_w2, grad_b2, grad_x= self.get_gradients(u)
         #similiar to gradient test we did in the previous QS
         grad_diffs_w1 = []
         grad_diffs_w1_grad = []
@@ -497,7 +482,7 @@ def runGradTest():
     y= np.array([[1,0]])
     nn = NN([2, 3,4, 2], lr=0.1)
     nn.forward(X.T, y)
-    nn.grad_test()
+    #Todo, add code from old file
 
 def runResNetJacTest():
     X = np.random.rand(1, 2)
@@ -601,19 +586,6 @@ def training_on_data_sets():
     plt.clf()
     
   
-    # Compute the loss and accuracy on the validation set using the best combination
-    # y_pred, loss = nn.forward(x_val.T,y_val.T)
-    # print("Loss on validation set:", loss)
-    # accuracy = np.mean(np.argmax(y_pred, axis=1) == np.argmax(y_val, axis=1))
-    # print("Accuracy on validation set:", accuracy)
-    # # Plot the accuracy on the training and validation sets
-    # plt.plot(accuracy_on_train, label="Training")
-    # plt.plot(accuracy_on_test, label="Validation")
-    # plt.title('Accuracy vs. Iteration')
-    # plt.xlabel('Iteration')
-    # plt.ylabel('Accuracy')
-    # plt.legend()
-    # plt.show()
 
 def very_simple_toy_example():
     X = np.random.rand(1, 2)
@@ -672,6 +644,6 @@ if __name__ == "__main__":
     runJacTest()
     runResNetJacTest()
     # training_on_data_sets()
-    runGradTest()
+    # runGradTest()
     # very_simple_toy_example()
 
