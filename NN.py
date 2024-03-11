@@ -4,7 +4,7 @@ import os
 from Qs2.deep import cross_entropy_loss_batch
 import numpy as np
 import matplotlib.pyplot as plt
-import scipy.io
+# import scipy.io
 class NN:
     def __init__(self, dims, lr=0.1,isResNet=False):
         
@@ -59,8 +59,8 @@ class NN:
         yTemp = y
         # print("shape: " + str(lastLayer.lastForwardValAfterActivation.shape) + " - " + str(y.shape))
         # print("shape: " + str(lastLayer.W.shape))   
-        dx=  np.mean(np.dot(lastLayer.W.T,(lastLayer.lastForwardValAfterActivation.T - y).T))
-        grad_w = np.dot( lastLayer.lastInput, lastLayer.lastForwardValAfterActivation.T - y)/lastLayer.lastInput.shape[0]
+        dx=  np.mean(np.dot(lastLayer.W.T,(lastLayer.lastForwardValAfterActivation.T - y.T).T))
+        grad_w = np.dot( lastLayer.lastInput, lastLayer.lastForwardValAfterActivation.T - y.T)/lastLayer.lastInput.shape[0]
         #if minimal value of y_pred -y is positive, print it
         # if np.min(y_pred - y) > 0:
         # print("y_pred - y" + str(np.min(y_pred - y))+str(np.max(y_pred - y)))
@@ -133,6 +133,67 @@ class NN:
     def Jacobian_Test(self, epsilon_iterator = [(0.5) ** i for i in range(0, 10)]):
         for layer in self.layers[:-1]:
             layer.Jacobian_Test(epsilon_iterator)
+    
+    #TODO totaly refine this
+    def grad_test(self):
+        """
+        this function verifies that the gradient WITH RESPECT TO THE LOSS of each layer is correct.
+
+        """
+        f_x = self.loss
+        # self.softmax_module.grad_test()  # perform grad test for softmax layer
+        dX_prev, _, _ = self.get_last_dx_dw_db(self.layers[-1].lastForwardValAfterActivation)
+        num_layers = len(self.layers)-2
+        for i, layer in enumerate(reversed(self.layers[:-1])):
+            self.begin_grad_test_linear(dX_prev, num_layers - i, f_x)
+            dX_prev, _, _ = layer.gradient(dX_prev)
+    def begin_grad_test_linear(self, dX_prev, layer_index, f_x):
+        """
+        this function begins the grad test for a linear layer
+        :param dX_prev: dX from the next layer
+        :param layer_index: the index of the layer
+        :param f_x: the loss
+        :return:
+        """
+        layer = self.layers[layer_index]
+        dX, dW, dB = layer.gradient(dX_prev)
+        params = [(layer.lastInput, "dX", dX, 'X'), (layer.W, "dW", dW, 'W'), (layer.b, "dB", dB, 'b')]
+        epsilon = [(0.5) ** i for i in range(0, 10)]
+        layer_title = "layer: %s" % str(layer_index + 1)
+        self.perform_grad_test(params, epsilon, layer, f_x, layer_index, layer_title)
+
+    def perform_grad_test(self, parameters, epsilon, layer, f_x, layer_index, layer_title):
+        C = self.layers[-1].lastForwardValAfterActivation
+        X = self.layers[layer_index].lastInput
+        for (param, param_name, gradient, name) in parameters:
+            o_eps = []
+            o_eps_squared = []
+
+            d = np.random.rand(*param.shape)
+            d = d / np.linalg.norm(d)
+
+            for eps in epsilon:
+                temp = param.copy()
+                layer.set_param(name, param + d * eps)
+
+                f_x_eps = self.loss_from(layer.X, C, layer_index)  # input is not cached
+                layer.set_param(name, temp)
+                o_eps.append(np.abs(f_x_eps - f_x))
+                temp_gradient = np.vdot(d, gradient) * eps
+                temp_o_squared = np.abs(f_x_eps - f_x - temp_gradient)
+                o_eps_squared.append(temp_o_squared)
+            self.plot_grad_test(epsilon, o_eps, o_eps_squared, param_name + " " + layer_title)
+
+    def plot_grad_test(epsilon, o_eps, o_eps_squared, title):
+        plt.plot(o_eps, label="without gradient", color="red")
+        plt.plot(o_eps_squared, label="with gradient", color="blue")
+        plt.yscale("log")
+        # plt.xscale("log")
+        # plt.xlabel("epsilon")
+        plt.ylabel("difference")
+        plt.legend()
+        plt.title(title)
+        plt.show()
 
 
 class Layer:
@@ -146,6 +207,15 @@ class Layer:
         self.lastForwardValBeforeActivation = None
         self.lastInput = None
         self.layerNum = layerNum
+
+    #TODO modify this
+    def set_param(self, param, value):
+        if param == 'W':
+            self.W = value
+        elif param == 'b':
+            self.b = value
+        elif param == 'X':
+            self.X = value
 
     def forward(self, x):
         # print("W: " + str(self.W) + " b: " + str(self.b))
@@ -475,6 +545,15 @@ def runJacTest():
     nn.forward(X.T)
     nn.Jacobian_Test()
 
+def runGradTest():
+    X = np.random.rand(1, 2)
+    y = np.random.rand(1, 2)
+
+    y= np.array([[1,0]])
+    nn = NN([2, 3,4, 2], lr=0.1)
+    nn.forward(X.T)
+    nn.grad_test()
+
 def runResNetJacTest():
     X = np.random.rand(1, 2)
     y = np.random.rand(1, 2)
@@ -612,29 +691,6 @@ def very_simple_toy_example():
     plt.show()
 
 
-def plot_fake_graphs():
-    # Plot the loss on the training and validation sets
-    #loss should decrease exponentially plus some noise
-    losses = [(100-i)**90/100 + 1000*(np.random.rand()-0.5) for i in range(100)]
-    validation_losses = [(100-i)**90/100 + 20*(np.random.rand()-0.5) for i in range(100)]
-    accuracy_on_train = [i/100 + np.random.rand()-0.5 for i in range(100)]
-    accuracy_on_test = [i/100 + np.random.rand()-0.6 for i in range(100)]
-
-    plt.plot(losses, label="Training")
-    plt.plot(validation_losses, label="Validation")
-    plt.title('Loss vs. Iteration')
-    plt.xlabel('Iteration')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.show()
-
-    plt.plot(accuracy_on_train, label="Training")
-    plt.plot(accuracy_on_test, label="Validation")
-    plt.title('Accuracy vs. Iteration')
-    plt.xlabel('Iteration')
-    plt.ylabel('Accuracy')
-    plt.legend()
-    plt.show()
 
     
 
@@ -668,9 +724,9 @@ if __name__ == "__main__":
     # nn.Jacobian_Test()
     # resNet = NN([2, 3, 2], lr=0.1, isResNet=True)
 
-    # runJacTest()
-    # runResNetJacTest()
-    training_on_data_sets()
+    runJacTest()
+    runResNetJacTest()
+    # training_on_data_sets()
+    # runGradTest()
     # very_simple_toy_example()
-    # plot_fake_graphs()
 
