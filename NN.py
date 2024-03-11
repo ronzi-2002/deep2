@@ -1,4 +1,6 @@
 #implementing a simple neural network
+import datetime
+import os
 from Qs2.deep import cross_entropy_loss_batch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -66,10 +68,16 @@ class NN:
         return dx, grad_w.T, grad_b.reshape(grad_b.shape[0],1)
         return
         return np.dot((lastLayer.lastForwardValAfterActivation - y), lastLayer.W.T)
-    def train(self, X, y, num_epochs, batch_size=1):
+    def train(self, X, y, num_epochs, batch_size=1, x_val = None, y_val = None, early_stopping = False, patience = 10):
         losses = []
         validation_losses = []
+        accuracy_on_train = []
+        accuracies_on_val = []
+        # val_indices = np.random.permutation(X.shape[1])
+        # X_val = x_val[:, val_indices]
+        # y_val = y_val[:, val_indices]
         for epoch in range(num_epochs):
+            y_pred = None
             indices = np.random.permutation(X.shape[1])
             X_train = X[:, indices]
             # y= y.T
@@ -89,14 +97,38 @@ class NN:
                 iteration_losses.append(loss)
             losses.append(np.mean(iteration_losses))
             loss = losses[-1]
+            
+            accuracy_on_train.append(np.mean(np.argmax(y_pred, axis=1) == np.argmax(curr_y.T, axis=1)))
 
             print("Epoch: " + str(epoch) + " Loss: " + str(loss))
+            if x_val is not None and y_val is not None:
+                #taking only 10 examples from the validation set
+                # x_val = x_val[:, :100]
+                # y_val = y_val[:, :100]
+
+                y_pred, loss = self.forward(x_val,y_val.T)
+                # y_pred, loss = self.forward(curr_X,curr_y)
+                temp = np.argmax(y_pred, axis=0)
+                temp2 = np.argmax(y_val, axis=0)
+                accuracy_on_val = np.mean(np.argmax(y_pred, axis=0) == np.argmax(y_val, axis=0))
+                accuracies_on_val.append(accuracy_on_val)
+                validation_losses.append(loss)
+                print("Validation Loss: " + str(loss))
+                if early_stopping and epoch > patience:
+                    if validation_losses[-1] > validation_losses[-patience]:
+                        print("Early Stopping")
+                        break
+        return losses, validation_losses, accuracy_on_train, accuracies_on_val
     def predict(self, X):
         return self.forward(X)
     
     def __str__(self):
+        # for layer in self.layers:
+        #     print(layer)
+        str = "NN: "
         for layer in self.layers:
-            print(layer)
+            str += "{"+layer.__str__() + "}" 
+        return str
     
     def Jacobian_Test(self, epsilon_iterator = [(0.5) ** i for i in range(0, 10)]):
         for layer in self.layers[:-1]:
@@ -153,7 +185,8 @@ class Layer:
     #     return np.dot(y_pred - y, self.W.T)
     
     def __str__(self):
-        return "W: " + str(self.W) + " b: " + str(self.b)+ "activation: " + str(self.activation)
+        # return "W: " + str(self.W) + " b: " + str(self.b)+ "activation: " + str(self.activation)
+        return f"In_D: {self.W.shape[1]}, O_D: {self.W.shape[0]}, ac: {self.activation.activation}"
     def Jacobian_Test(self, epsilon_iterator = [(0.5) ** i for i in range(0, 10)]):
         u = np.random.rand(self.W.shape[0], self.lastInput.shape[1])  
         grad_w, grad_b, grad_x= self.gradient(u)
@@ -458,13 +491,25 @@ def training_on_data_sets():
     # data = scipy.io.loadmat('GMMData.mat')
     x_train = data['Yt']
     y_train = data['Ct']
+    # turn each example in x from 2 dimensions to 5
+    #x is in shape of (2,2500) and we want to turn it into (5,2500)
+    # x_train = np.vstack((x_train, np.random.rand(3, x_train.shape[1])))
+    print("x_train" + str(x_train))
+    
+
     x_val = data['Yv']
     y_val = data['Cv']
+    val_indices = np.random.permutation(x_val.shape[1])
+    x_val = x_val[:, val_indices]
+    y_val = y_val[:, val_indices]
+    x_val = x_val[:, :100]
+    y_val = y_val[:, :100]
     # Initialize weights and biases for SGD
     print("xShape" + str(x_train.shape), "yShape" + str(y_train.shape))
     # return
     input_layer_size = x_train.shape[0]
     output_layer_size = y_train.shape[0]
+
     print("input_layer_size: " + str(input_layer_size), "output_layer_size: " + str(output_layer_size))
     
     
@@ -481,12 +526,17 @@ def training_on_data_sets():
             print("learning_rate" + str(learning_rate), "batch_size" + str(batch_size))
             
             np.random.seed(42)
-            nn = NN([input_layer_size, 3, output_layer_size], lr=learning_rate)
-            nn.train(x_train, y_train, 100, batch_size=batch_size)
-            y_pred, loss = nn.forward(x_val,y_val)
+            nn = NN([input_layer_size, 3,4,20,30, output_layer_size], lr=learning_rate)
+            # nn = NN([input_layer_size, 16, 32, 64, 128, 64, 32, 16, output_layer_size], lr=learning_rate)
 
-            accuracy = np.mean(np.argmax(y_pred, axis=1) == np.argmax(y_val.T, axis=1))
+           
+            nn.train(x_train, y_train, 100, batch_size=batch_size, x_val = x_val, y_val = y_val, early_stopping = True, patience = 10)
+       
+            y_pred, loss = nn.forward(x_val,y_val.T)
+
+            accuracy = np.mean(np.argmax(y_pred, axis=0) == np.argmax(y_val, axis=0))
             
+            print("Accuracy on validation set:", accuracy)
 
             # Check if current combination is the best so far
             if accuracy > best_accuracy:
@@ -498,44 +548,48 @@ def training_on_data_sets():
 
    #run the network with the best combination on the entire dataset
     np.random.seed(42)
-    nn = NN([input_layer_size, 3, output_layer_size], lr=best_learning_rate)
-    losses = []
-    accuracy_on_train = []
-    accuracy_on_test = []
-    for epoch in range(100):
-        y_pred, loss = nn.forward(x_train.T,y_train)
-        nn.backward()
-        losses.append(loss)
-        accuracy = np.mean(np.argmax(y_pred, axis=1) == np.argmax(y_train.T, axis=1))
-        accuracy_on_train.append(accuracy)
-        y_pred = nn.forward(x_val.T)
-        accuracy = np.mean(np.argmax(y_pred, axis=1) == np.argmax(y_val.T, axis=1))
-        accuracy_on_test.append(accuracy)
+    nn = NN([input_layer_size, 16, 32, output_layer_size], lr=learning_rate)
+    losses, validation_losses, accuracy_on_train, accuracy_on_test = nn.train(x_train, y_train, 100, batch_size=best_batch_size, x_val = x_val, y_val = y_val, early_stopping = True, patience = 10)
 
-    print("accuracy_on_train" + str(accuracy_on_train))
-    print("accuracy_on_test" + str(accuracy_on_test))
+    #save all plots in a directory called "Training_Regular_NN +current date and time"(if directory doesnt exist, create it) in the current directory
+    currTime = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+    directory = "Training_Regular_NN " + currTime
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    # Plot the loss on the training and validation sets
+    plt.plot(losses, label="Training")
+    plt.plot(validation_losses, label="Validation")
     
-
-    # Plot the losses
-    plt.plot(losses)
-    plt.title('Loss vs. Iteration')
+    plt.title('Loss vs. Iteration for: '+ nn.__str__(), wrap=True)
     plt.xlabel('Iteration')
     plt.ylabel('Loss')
-    plt.show()
+    plt.legend()
+    plt.savefig(directory + "/Loss.png")
+    plt.clf()
 
-    # Compute the loss and accuracy on the validation set using the best combination
-    y_pred, loss = nn.forward(x_val.T,y_val.T)
-    print("Loss on validation set:", loss)
-    accuracy = np.mean(np.argmax(y_pred, axis=1) == np.argmax(y_val.T, axis=1))
-    print("Accuracy on validation set:", accuracy)
-    # Plot the accuracy on the training and validation sets
     plt.plot(accuracy_on_train, label="Training")
     plt.plot(accuracy_on_test, label="Validation")
-    plt.title('Accuracy vs. Iteration')
+    plt.title('Accuracy vs. Iteration for: '+ nn.__str__() , wrap=True)
     plt.xlabel('Iteration')
     plt.ylabel('Accuracy')
     plt.legend()
-    plt.show()
+    plt.savefig(directory + "/Accuracy.png")
+    plt.clf()
+    
+  
+    # Compute the loss and accuracy on the validation set using the best combination
+    # y_pred, loss = nn.forward(x_val.T,y_val.T)
+    # print("Loss on validation set:", loss)
+    # accuracy = np.mean(np.argmax(y_pred, axis=1) == np.argmax(y_val, axis=1))
+    # print("Accuracy on validation set:", accuracy)
+    # # Plot the accuracy on the training and validation sets
+    # plt.plot(accuracy_on_train, label="Training")
+    # plt.plot(accuracy_on_test, label="Validation")
+    # plt.title('Accuracy vs. Iteration')
+    # plt.xlabel('Iteration')
+    # plt.ylabel('Accuracy')
+    # plt.legend()
+    # plt.show()
 
 def very_simple_toy_example():
     X = np.random.rand(1, 2)
@@ -557,6 +611,30 @@ def very_simple_toy_example():
     plt.ylabel('Difference')
     plt.show()
 
+
+def plot_fake_graphs():
+    # Plot the loss on the training and validation sets
+    #loss should decrease exponentially plus some noise
+    losses = [(100-i)**90/100 + 1000*(np.random.rand()-0.5) for i in range(100)]
+    validation_losses = [(100-i)**90/100 + 20*(np.random.rand()-0.5) for i in range(100)]
+    accuracy_on_train = [i/100 + np.random.rand()-0.5 for i in range(100)]
+    accuracy_on_test = [i/100 + np.random.rand()-0.6 for i in range(100)]
+
+    plt.plot(losses, label="Training")
+    plt.plot(validation_losses, label="Validation")
+    plt.title('Loss vs. Iteration')
+    plt.xlabel('Iteration')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.show()
+
+    plt.plot(accuracy_on_train, label="Training")
+    plt.plot(accuracy_on_test, label="Validation")
+    plt.title('Accuracy vs. Iteration')
+    plt.xlabel('Iteration')
+    plt.ylabel('Accuracy')
+    plt.legend()
+    plt.show()
 
     
 
@@ -592,6 +670,7 @@ if __name__ == "__main__":
 
     # runJacTest()
     # runResNetJacTest()
-    # training_on_data_sets()
-    very_simple_toy_example()
+    training_on_data_sets()
+    # very_simple_toy_example()
+    # plot_fake_graphs()
 
