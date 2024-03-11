@@ -113,10 +113,4 @@ biases = np.random.rand(1,5)
 print(weights)
 # Perform the gradient test
 
-# gradient_test(weights, biases, X, y)
-
-# gradient_test_by_lecture_notes_linear_dec_2(weights, biases, X, y, initial_epsilon=1)
-# gradient_test_by_lecture_notes_linear_exponantial(weights, biases, X, y, initial_epsilon=1)
-# gradient_test_ploting_functions(weights, biases, X, y, initial_epsilon=1, epsilon_iterator = [1/(10**i) for i in range(11)])
-# gradient_test_ploting_functions(weights, biases, X, y, initial_epsilon=1, epsilon_iterator = [1/(10**i) for i in range(11)])
 gradient_test_ploting_functions_byLecture(weights, biases, X, y, initial_epsilon=1, epsilon_iterator = [(0.5**(i)) for i in range(11)])

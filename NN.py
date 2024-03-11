@@ -134,66 +134,7 @@ class NN:
         for layer in self.layers[:-1]:
             layer.Jacobian_Test(epsilon_iterator)
     
-    #TODO totaly refine this
-    def grad_test(self):
-        """
-        this function verifies that the gradient WITH RESPECT TO THE LOSS of each layer is correct.
-
-        """
-        f_x = self.loss
-        # self.softmax_module.grad_test()  # perform grad test for softmax layer
-        dX_prev, _, _ = self.get_last_dx_dw_db(self.layers[-1].lastForwardValAfterActivation)
-        num_layers = len(self.layers)-2
-        for i, layer in enumerate(reversed(self.layers[:-1])):
-            self.begin_grad_test_linear(dX_prev, num_layers - i, f_x)
-            dX_prev, _, _ = layer.gradient(dX_prev)
-    def begin_grad_test_linear(self, dX_prev, layer_index, f_x):
-        """
-        this function begins the grad test for a linear layer
-        :param dX_prev: dX from the next layer
-        :param layer_index: the index of the layer
-        :param f_x: the loss
-        :return:
-        """
-        layer = self.layers[layer_index]
-        dX, dW, dB = layer.gradient(dX_prev)
-        params = [(layer.lastInput, "dX", dX, 'X'), (layer.W, "dW", dW, 'W'), (layer.b, "dB", dB, 'b')]
-        epsilon = [(0.5) ** i for i in range(0, 10)]
-        layer_title = "layer: %s" % str(layer_index + 1)
-        self.perform_grad_test(params, epsilon, layer, f_x, layer_index, layer_title)
-
-    def perform_grad_test(self, parameters, epsilon, layer, f_x, layer_index, layer_title):
-        C = self.layers[-1].lastForwardValAfterActivation
-        X = self.layers[layer_index].lastInput
-        for (param, param_name, gradient, name) in parameters:
-            o_eps = []
-            o_eps_squared = []
-
-            d = np.random.rand(*param.shape)
-            d = d / np.linalg.norm(d)
-
-            for eps in epsilon:
-                temp = param.copy()
-                layer.set_param(name, param + d * eps)
-
-                f_x_eps = layer.forward(layer.lastInput, C)  # input is not cached
-                layer.set_param(name, temp)
-                o_eps.append(np.abs(f_x_eps - f_x))
-                temp_gradient = np.vdot(d, gradient) * eps
-                temp_o_squared = np.abs(f_x_eps - f_x - temp_gradient)
-                o_eps_squared.append(temp_o_squared)
-            self.plot_grad_test(epsilon, o_eps, o_eps_squared, param_name + " " + layer_title)
-
-    def plot_grad_test(epsilon, o_eps, o_eps_squared, title):
-        plt.plot(o_eps, label="without gradient", color="red")
-        plt.plot(o_eps_squared, label="with gradient", color="blue")
-        plt.yscale("log")
-        # plt.xscale("log")
-        # plt.xlabel("epsilon")
-        plt.ylabel("difference")
-        plt.legend()
-        plt.title(title)
-        plt.show()
+   
 
 
 class Layer:
