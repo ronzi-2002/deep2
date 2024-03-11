@@ -176,7 +176,7 @@ class NN:
                 temp = param.copy()
                 layer.set_param(name, param + d * eps)
 
-                f_x_eps = self.loss_from(layer.X, C, layer_index)  # input is not cached
+                f_x_eps = layer.forward(layer.lastInput, C)  # input is not cached
                 layer.set_param(name, temp)
                 o_eps.append(np.abs(f_x_eps - f_x))
                 temp_gradient = np.vdot(d, gradient) * eps
@@ -220,6 +220,8 @@ class Layer:
     def forward(self, x):
         # print("W: " + str(self.W) + " b: " + str(self.b))
         # print("WShape: " + str(self.W.shape) + " bShape: " + str(self.b.shape) + " xShape: " + str(x.shape))
+        
+        #dont touch this
         self.lastInput = x
 
         self.lastForwardValBeforeActivation = np.dot(self.W, x) + self.b
@@ -230,6 +232,8 @@ class Layer:
         # print("dx_from_next_layer: " + str(dx_from_next_layer))
         # print("self.activation.backward(self.lastForwardValBeforeActivation): " + str(self.activation.backward(self.lastForwardValBeforeActivation)))
         # print("self.lastInput.T: " + str(self.lastInput.T))
+
+        #dont touch this.
         grad_w = dx_from_next_layer * np.dot(self.activation.backward(self.lastForwardValBeforeActivation), self.lastInput.T)
         grad_b = np.sum(dx_from_next_layer * self.activation.backward(self.lastForwardValBeforeActivation), axis=1, keepdims=True)
         current_dx = np.dot(self.W.T,(dx_from_next_layer * self.activation.backward(self.lastForwardValBeforeActivation)))
@@ -551,7 +555,7 @@ def runGradTest():
 
     y= np.array([[1,0]])
     nn = NN([2, 3,4, 2], lr=0.1)
-    nn.forward(X.T)
+    nn.forward(X.T, y)
     nn.grad_test()
 
 def runResNetJacTest():
@@ -727,6 +731,6 @@ if __name__ == "__main__":
     runJacTest()
     runResNetJacTest()
     # training_on_data_sets()
-    # runGradTest()
+    runGradTest()
     # very_simple_toy_example()
 
