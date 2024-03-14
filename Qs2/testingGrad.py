@@ -108,7 +108,7 @@ def gradient_test_ploting_functions_byLecture(weights, biases, X, y, initial_eps
 np.random.seed(42)
 X = np.random.rand(1, 1) #100 data points, each 1 features
 y = np.eye(5, 1)  # Assuming 5 classes for softmax regression , one-hot encoding
-weights = np.random.rand(1, 5) # 1 feature, 3 classes
+weights = np.random.rand(1, 5) # 1 feature, 5 classes
 biases = np.random.rand(1,5)
 print(weights)
 # Perform the gradient test

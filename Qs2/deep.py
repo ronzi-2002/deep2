@@ -1,20 +1,13 @@
-'''
-Write the code for computing the loss function “soft-max regression” and its gradient
-with respect to wj and the biases. Make sure that the derivatives are correct using the
-gradient test (See the subsection “Gradient and Jacobian Verification” in the notes).
-You should demonstrate and submit the results of the gradient test.
-'''
 import numpy as np
 import matplotlib.pyplot as plt
 from copy import deepcopy
-# import scipy.io
-'''implement the cross entropy loss function'''
+import scipy.io
+
 def cross_entropy_loss_single(y, y_hat):#for a single data point
     epsilon = 1e-10  # Small constant to avoid log(0)
     y_hat = np.clip(y_hat, epsilon, 1 - epsilon)
     return -np.sum(y*np.log(y_hat)) # y_hat is the predicted value, y is the true value
 
-#TODO: This function is 100 percent correct.
 def cross_entropy_loss_batch(y, y_hat):#for a batch of data points
     epsilon = 1e-10  # Small constant to avoid log(0)
     y_hat = np.clip(y_hat, epsilon, 1 - epsilon)
@@ -26,7 +19,6 @@ def cross_entropy_loss_batch(y, y_hat):#for a batch of data points
 def softmax(x):
     tempExp = np.exp(x)
     tempSum = np.sum(tempExp, axis=1, keepdims=True)
-    #divide each value in x by the sum of the row
     retVal = tempExp / tempSum
     return retVal
     return np.exp(x)/np.sum(np.exp(x), axis=1, keepdims=True)
@@ -44,9 +36,6 @@ def compute_grad(weights, biases, X, y, y_pred):
     # y_pred = softmax(logits)
     # print ("y_pred" + str(y_pred))
     grad_w = np.dot(X.T, y_pred - y.T)/X.shape[0]
-    #if minimal value of y_pred -y is positive, print it
-    # if np.min(y_pred - y) > 0:
-    # print("y_pred - y" + str(np.min(y_pred - y))+str(np.max(y_pred - y)))
     grad_b = np.sum(y_pred - y.T, axis=0)/X.shape[0]
 
 
@@ -55,29 +44,11 @@ def compute_grad(weights, biases, X, y, y_pred):
     # print(grad_w)
     return grad_w, grad_b
 
-# def gradient_test():
-# #     Make sure that the derivatives are correct using the
-# # gradient test 
-#     # Generate random data points
-#     np.random.seed(42)
-#     X = 2 * np.random.rand(100, 1)
-#     y = 4 + 3 * X + np.random.randn(100, 1)
-#     # Initialize weights and biases for SGD
-#     initial_weights = np.random.randn(1, 1)
-#     initial_biases = np.random.randn(1)
-#     # Compute gradients using the provided function
-#     grad_w, grad_b = compute_grad(initial_weights, initial_biases, X, y)
-    
-    
 
 
 def compute_grad_for_MSE(weights, biases, X, y, y_pred):
     m = len(X)
-    
-    # Compute gradients for weights
     grad_weights = (-2/m) * np.dot(X.T, (y - y_pred))
-    
-    # Compute gradient for biases
     grad_biases = (-2/m) * np.sum(y - y_pred)
     
     return grad_weights, grad_biases
@@ -137,7 +108,7 @@ def sgd(weights, biases, X, y,loss_function=cross_entropy_loss_batch,gradient_fu
         elif i > 10 and losses[-1] > np.mean(losses[-10:-1]):
             print("Early stopping at iteration", i)
             break
-        # Compute the accuracy on the training set(on a random batch that is 10% of the data)
+
         random_batch = np.random.choice(X.shape[0], size=int(X.shape[0] * 0.1), replace=False)
         logits = np.dot(X[random_batch], weights) + biases
         y_pred = softmax(logits)
@@ -154,27 +125,6 @@ def sgd(weights, biases, X, y,loss_function=cross_entropy_loss_batch,gradient_fu
             y_class = np.argmax(y_val, axis=1)
             accuracy_on_test.append(np.mean(y_pred_class == y_class))
 
-
-
-
-            
-
-
-
-        # # Plot the data and solutions
-        # plt.scatter(X, y, label="True Data")
-        # # plt.plot(X, X_b.dot(theta_closed_form), label="Closed-form Solution", color='green', linewidth=2)
-        # plt.plot(X, X.dot(weights) + biases, label="SGD Solution", color='red', linestyle='dashed', linewidth=2)
-
-        # plt.xlabel("X")
-        # plt.ylabel("y")
-        # plt.legend()
-        # plt.title("Linear Regression - Closed-form vs SGD")
-        # plt.show()
-
-
-
-
     if x_val is not None and y_val is not None:
         return weights, biases, losses, accuracy_on_train, accuracy_on_test
     # print(all_weights)
@@ -184,8 +134,7 @@ def mean_squared_error(y_true, y_pred):
     return np.mean((y_true - y_pred)**2)
 
 
-#i need a function that receives an array of points and returns the slope and the bias of the line that fits the points
-def closed_form_solution(X, y):
+def closed_form_solution(X, y):#This was taken from some online source
     # Add bias term to X
     X_b = np.c_[np.ones((X.shape[0], 1)), X]
     # Compute closed-form solution
@@ -200,12 +149,7 @@ def test_sgd_MSE():
     np.random.seed(42)
     X = 2 * np.random.rand(100, 1)
     y = 4 + 3 * X + np.random.randn(100, 1)
-    #export the data to a xls file, having the first column as the x values and the second column as the y values
-    # np.savetxt("data.csv", np.column_stack((X, y)), delimiter=",", fmt='%s')
 
-        # Add bias term to X
-    # X_b = np.c_[np.ones((X.shape[0], 1)), X]
-    # print(X)
 
     # Compute closed-form solution
     theta_closed_form = closed_form_solution(X, y)
@@ -236,14 +180,8 @@ def test_sgd_MSE():
 
     # Plot the data and solutions
     plt.scatter(X, y, label="True Data")
-
-
-    # plt.plot(X, X_b.dot(theta_closed_form), label="Closed-form Solution", color='green', linewidth=2)
-    plt.plot(X, X.dot(theta_closed_form[1]) + theta_closed_form[0], label="Closed-form Solution", color='green', linewidth=2)
-    # create an array x_for_plotting that contains x values from min to max but takes every 3 points
-    
+    plt.plot(X, X.dot(theta_closed_form[1]) + theta_closed_form[0], label="Closed-form Solution", color='green', linewidth=2)    
     x_for_plotting = np.sort(X, axis=0)
-    # plt.plot(X, X.dot(final_weights) + final_biases, label="SGD Solution", color='red',marker='', linestyle='--', linewidth=2,dashes=(10, 100))
     plt.plot(x_for_plotting, x_for_plotting.dot(final_weights) + final_biases, label="SGD Solution", color='red',marker='', linestyle='--', linewidth=2)
 
     plt.xlabel("X")
@@ -252,15 +190,12 @@ def test_sgd_MSE():
     plt.title("Linear Regression - Closed-form vs SGD")
     plt.show()
 
-    # Check if the solutions are close
-    # assert np.allclose(theta_closed_form, np.concatenate([final_biases, final_weights[1:]]), rtol=1e-2), "SGD did not converge to the correct solution"
-
+  
     # Predict using the closed-form solution
     y_pred_closed_form =  X.dot(theta_closed_form[1]) + theta_closed_form[0]
     # Predict using the SGD solution
     y_pred_sgd = X.dot(final_weights) + final_biases
 
-    # Calculate and print mean squared errors
     mse_closed_form = mean_squared_error(y, y_pred_closed_form)
     mse_sgd = mean_squared_error(y, y_pred_sgd)
     print("Mean Squared Error (Closed-form):", mse_closed_form)

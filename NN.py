@@ -73,9 +73,6 @@ class NN:
         validation_losses = []
         accuracy_on_train = []
         accuracies_on_val = []
-        # val_indices = np.random.permutation(X.shape[1])
-        # X_val = x_val[:, val_indices]
-        # y_val = y_val[:, val_indices]
         for epoch in range(num_epochs):
             y_pred = None
             indices = np.random.permutation(X.shape[1])
@@ -175,17 +172,7 @@ class Layer:
         return current_dx
     
 
-    # def backward(self, x, y, y_pred):
-    #     print("x" + str(x))
-    #     print("y" + str(y))
-    #     print("x.Shape" + str(x.shape))
-    #     print("y.Shape" + str(y.shape))
-    #     grad_w = np.dot(x.T, y_pred - y)/x.shape[0]
-    #     print("grad_w" + str(grad_w))
-    #     grad_b = np.sum(y_pred - y, axis=0)/x.shape[0]
-    #     self.W -= self.lr * grad_w
-    #     self.b -= self.lr * grad_b
-    #     return np.dot(y_pred - y, self.W.T)
+
     
     def __str__(self):
         # return "W: " + str(self.W) + " b: " + str(self.b)+ "activation: " + str(self.activation)
@@ -294,17 +281,18 @@ class ResiduaBlock:
         grad_w2 = dx_from_next_layer * np.dot(self.activation.backward(self.lastForwardValBeforeActivation), self.layers[0].lastForwardValAfterActivation.T)
         grad_b2 = np.sum(dx_from_next_layer * self.activation.backward(self.lastForwardValBeforeActivation), axis=1, keepdims=True)
         grad_A = np.dot(self.layers[1].W.T,(dx_from_next_layer * self.activation.backward(self.lastForwardValBeforeActivation)))
+        current_dx = np.dot( self.layers[0].W.T,(grad_A * self.activation.backward(self.layers[0].lastForwardValBeforeActivation)))+dx_from_next_layer*self.activation.backward(self.lastForwardValBeforeActivation)
         grad_w1 = grad_A * np.dot(self.activation.backward(self.layers[0].lastForwardValBeforeActivation), self.lastInput.T)
         grad_b1 = np.sum(grad_A * self.activation.backward(self.layers[0].lastForwardValBeforeActivation), axis=1, keepdims=True)
-        current_dx = np.dot( self.layers[0].W.T,(grad_A * self.activation.backward(self.layers[0].lastForwardValBeforeActivation)))+dx_from_next_layer*self.activation.backward(self.lastForwardValBeforeActivation)
         return grad_w1, grad_b1, grad_w2, grad_b2, current_dx
     
     def backward(self, dx_from_next_layer):
         grad_w1, grad_b1, grad_w2, grad_b2, current_dx = self.get_gradients(dx_from_next_layer)
-        self.layers[0].W -= self.lr * grad_w1
-        self.layers[0].b -= self.lr * grad_b1
         self.layers[1].W -= self.lr * grad_w2
         self.layers[1].b -= self.lr * grad_b2
+        self.layers[0].W -= self.lr * grad_w1
+        self.layers[0].b -= self.lr * grad_b1
+  
         return current_dx
     
     def Jacobian_Test(self, epsilon_iterator = [(0.5) ** i for i in range(0, 10)]):
@@ -456,7 +444,7 @@ class Activation:
             # return 1 - x**2
             return 1 - self.forward(x) ** 2
         elif self.activation == "softmax":
-            # Todo check this
+            
             # return x * (1 - x)
             selFor = self.forward(x)
             return selFor * (1 - selFor) 
@@ -500,9 +488,7 @@ def training_on_data_sets():
     # data = scipy.io.loadmat('GMMData.mat')
     x_train = data['Yt']
     y_train = data['Ct']
-    # turn each example in x from 2 dimensions to 5
-    #x is in shape of (2,2500) and we want to turn it into (5,2500)
-    # x_train = np.vstack((x_train, np.random.rand(3, x_train.shape[1])))
+
     print("x_train" + str(x_train))
     
 
@@ -560,7 +546,6 @@ def training_on_data_sets():
     nn = NN([input_layer_size, 16, 32, output_layer_size], lr=learning_rate)
     losses, validation_losses, accuracy_on_train, accuracy_on_test = nn.train(x_train, y_train, 100, batch_size=best_batch_size, x_val = x_val, y_val = y_val, early_stopping = True, patience = 10)
 
-    #save all plots in a directory called "Training_Regular_NN +current date and time"(if directory doesnt exist, create it) in the current directory
     currTime = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
     directory = "Training_Regular_NN " + currTime
     if not os.path.exists(directory):
